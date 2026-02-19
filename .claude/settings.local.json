@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(winget upgrade:*)",
+      "WebSearch",
+      "WebFetch(domain:www.legifrance.gouv.fr)",
+      "WebFetch(domain:stripe.com)",
+      "WebFetch(domain:www.economie.gouv.fr)",
+      "WebFetch(domain:entreprendre.service-public.gouv.fr)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx cc-sdd@latest:*)",
+      "Bash(docker:*)",
+      "Bash(docker compose:*)"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+api_platform:
+    title: GETTESTED API
+    description: API de plateforme de tests linguistiques
+    version: 1.0.0
+    formats:
+        jsonld: ['application/ld+json']
+        json: ['application/json']
+    defaults:
+        stateless: true
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']
+        pagination_items_per_page: 30
+    collection:
+        pagination:
+            enabled: true

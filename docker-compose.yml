@@ -1,0 +1,58 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: gettested-php
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - APP_ENV=${APP_ENV:-dev}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://gettested:gettested@database:5432/gettested?serverVersion=16&charset=utf8}
+      - MAILER_DSN=${MAILER_DSN:-smtp://mailpit:1025}
+      - JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem
+      - JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem
+      - JWT_PASSPHRASE=${JWT_PASSPHRASE:-gettested}
+      - SERVER_NAME=${SERVER_NAME:-localhost}
+      - FRANKENPHP_CONFIG=worker ./public/index.php
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: postgres:16-alpine
+    container_name: gettested-database
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gettested}
+      POSTGRES_USER: ${POSTGRES_USER:-gettested}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gettested}
+    ports:
+      - "5432:5432"
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gettested}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: gettested-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  database_data:
+  caddy_data:
+  caddy_config:

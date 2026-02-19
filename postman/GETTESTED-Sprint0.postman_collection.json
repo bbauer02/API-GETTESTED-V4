@@ -1,0 +1,816 @@
+{
+	"info": {
+		"name": "GETTESTED API - Sprint 0",
+		"description": "Collection complète des routes du Sprint 0 de l'API GETTESTED.\n\n**Comptes fixtures :**\n- Admin : admin@gettested.com / password123\n- User 1 (vérifié) : user1@test.com / password123\n- User 2 (non vérifié) : user2@test.com / password123\n- Inactif : inactive@test.com / password123",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://localhost/api"
+		},
+		{
+			"key": "jwt_token",
+			"value": ""
+		},
+		{
+			"key": "admin_token",
+			"value": ""
+		},
+		{
+			"key": "user_id",
+			"value": ""
+		}
+	],
+	"item": [
+		{
+			"name": "1. Auth",
+			"description": "Authentification et gestion de compte",
+			"item": [
+				{
+					"name": "1.1 Register - Inscription",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('user_id', json.id || json['@id']);",
+									"    pm.test('Inscription réussie', function () {",
+									"        pm.expect(pm.response.code).to.eql(201);",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/ld+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"nouveau@test.com\",\n    \"password\": \"password123\",\n    \"firstname\": \"Nouveau\",\n    \"lastname\": \"Utilisateur\",\n    \"civility\": \"M\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register"]
+						},
+						"description": "Inscription d'un nouvel utilisateur. Envoie un email de vérification.\n\n**Champs requis :** email, password (min 8 car.), firstname, lastname, civility (M/MME/MLLE/AUTRE)"
+					}
+				},
+				{
+					"name": "1.2 Login - Admin",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('admin_token', json.token);",
+									"    pm.collectionVariables.set('jwt_token', json.token);",
+									"    pm.test('Login admin réussi', function () {",
+									"        pm.expect(json.token).to.be.a('string');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@gettested.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Connexion avec le compte admin. Le token JWT est automatiquement sauvegardé dans `admin_token` et `jwt_token`."
+					}
+				},
+				{
+					"name": "1.3 Login - User standard",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('jwt_token', json.token);",
+									"    pm.test('Login user réussi', function () {",
+									"        pm.expect(json.token).to.be.a('string');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user1@test.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Connexion avec un compte utilisateur standard. Le token JWT est sauvegardé dans `jwt_token`."
+					}
+				},
+				{
+					"name": "1.4 Login - User inactif (doit échouer)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Login refusé pour compte inactif', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"inactive@test.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Tentative de connexion avec un compte désactivé. Doit retourner 401/403."
+					}
+				},
+				{
+					"name": "1.5 Verify Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify-email/REMPLACER_PAR_LE_TOKEN",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "verify-email", "REMPLACER_PAR_LE_TOKEN"]
+						},
+						"description": "Vérification de l'email via le token reçu par mail.\n\n**Note :** Remplacer `REMPLACER_PAR_LE_TOKEN` par le token reçu dans l'email de vérification (ou récupéré dans les logs Mailer)."
+					}
+				},
+				{
+					"name": "1.6 Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user1@test.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "forgot-password"]
+						},
+						"description": "Demande de réinitialisation de mot de passe. Retourne toujours 200 (ne révèle pas si l'email existe)."
+					}
+				},
+				{
+					"name": "1.7 Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"newPassword\": \"nouveauMotDePasse123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/reset-password/REMPLACER_PAR_LE_TOKEN",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "reset-password", "REMPLACER_PAR_LE_TOKEN"]
+						},
+						"description": "Réinitialisation du mot de passe avec le token reçu par email.\n\n**Note :** Le nouveau mot de passe doit faire au moins 8 caractères."
+					}
+				}
+			]
+		},
+		{
+			"name": "2. User - Mon profil",
+			"description": "Endpoints pour l'utilisateur connecté",
+			"item": [
+				{
+					"name": "2.1 GET Mon profil",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.test('Profil récupéré', function () {",
+									"        var json = pm.response.json();",
+									"        pm.expect(json.email).to.be.a('string');",
+									"        pm.expect(json.firstname).to.be.a('string');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "me"]
+						},
+						"description": "Récupère le profil de l'utilisateur connecté (groupe `user:read:self`)."
+					}
+				},
+				{
+					"name": "2.2 PATCH Mon profil",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/merge-patch+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"phone\": \"0612345678\",\n    \"phoneCountryCode\": \"+33\",\n    \"gender\": \"MASCULIN\",\n    \"birthday\": \"1990-05-15\",\n    \"address\": {\n        \"address1\": \"12 rue de la Paix\",\n        \"zipcode\": \"75002\",\n        \"city\": \"Paris\",\n        \"countryCode\": \"FR\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "me"]
+						},
+						"description": "Modification du profil personnel.\n\n**Champs modifiables (groupe `user:write:self`) :**\navatar, gender, phone, phoneCountryCode, address, birthday, nativeCountry, nationality, firstlanguage, previousRegistrationNumber"
+					}
+				},
+				{
+					"name": "2.3 PATCH Mon profil - Avec pays & langue",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/merge-patch+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nativeCountry\": \"/api/countries/FR\",\n    \"nationality\": \"/api/countries/FR\",\n    \"firstlanguage\": \"/api/languages/fr\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "me"]
+						},
+						"description": "Modification du profil avec des relations (IRI API Platform).\n\nLes relations utilisent le format IRI : `/api/countries/FR`, `/api/languages/fr`."
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Users - Admin",
+			"description": "Gestion des utilisateurs (réservé ADMIN plateforme)",
+			"item": [
+				{
+					"name": "3.1 GET Liste des utilisateurs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.test('Liste récupérée', function () {",
+									"        var json = pm.response.json();",
+									"        pm.expect(json['hydra:member']).to.be.an('array');",
+									"        pm.expect(json['hydra:totalItems']).to.be.a('number');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"]
+						},
+						"description": "Liste paginée de tous les utilisateurs (30/page)."
+					}
+				},
+				{
+					"name": "3.2 GET Liste - Filtre par email",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users?email=user1@test.com",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"],
+							"query": [
+								{ "key": "email", "value": "user1@test.com" }
+							]
+						},
+						"description": "Recherche d'un utilisateur par email exact."
+					}
+				},
+				{
+					"name": "3.3 GET Liste - Filtre par nom (partiel)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users?lastname=Dup",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"],
+							"query": [
+								{ "key": "lastname", "value": "Dup" }
+							]
+						},
+						"description": "Recherche partielle par nom de famille."
+					}
+				},
+				{
+					"name": "3.4 GET Liste - Filtre isActive",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users?isActive=true&isVerified=true",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"],
+							"query": [
+								{ "key": "isActive", "value": "true" },
+								{ "key": "isVerified", "value": "true" }
+							]
+						},
+						"description": "Filtrer les utilisateurs actifs et vérifiés."
+					}
+				},
+				{
+					"name": "3.5 GET Liste - Filtre platformRole",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users?platformRole=ADMIN",
+							"host": ["{{baseUrl}}"],
+							"path": ["users"],
+							"query": [
+								{ "key": "platformRole", "value": "ADMIN" }
+							]
+						},
+						"description": "Lister uniquement les administrateurs plateforme."
+					}
+				},
+				{
+					"name": "3.6 GET Utilisateur par ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{user_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{user_id}}"]
+						},
+						"description": "Voir le détail d'un utilisateur par son UUID.\n\n**Note :** Remplacer `{{user_id}}` par un UUID réel ou utiliser la valeur sauvée après inscription."
+					}
+				},
+				{
+					"name": "3.7 PATCH Utilisateur (admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/merge-patch+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"isActive\": false,\n    \"platformRole\": \"USER\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{user_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{user_id}}"]
+						},
+						"description": "Modification admin d'un utilisateur.\n\n**Champs modifiables (groupe `user:write:admin`) :** isActive, platformRole"
+					}
+				},
+				{
+					"name": "3.8 DELETE Utilisateur (soft delete)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{user_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["users", "{{user_id}}"]
+						},
+						"description": "Suppression logique (soft delete) d'un utilisateur. Le champ `deletedAt` est renseigné, l'utilisateur est filtré par le SoftDeleteFilter."
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Countries",
+			"description": "Gestion des pays (référentiel ISO 3166-1)",
+			"item": [
+				{
+					"name": "4.1 GET Liste des pays",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.test('Liste des pays récupérée', function () {",
+									"        var json = pm.response.json();",
+									"        pm.expect(json['hydra:member']).to.be.an('array');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/countries",
+							"host": ["{{baseUrl}}"],
+							"path": ["countries"]
+						},
+						"description": "Liste paginée de tous les pays. **Accès public.**"
+					}
+				},
+				{
+					"name": "4.2 GET Liste - Filtre par code",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/countries?code=FR",
+							"host": ["{{baseUrl}}"],
+							"path": ["countries"],
+							"query": [
+								{ "key": "code", "value": "FR" }
+							]
+						},
+						"description": "Recherche par code ISO exact."
+					}
+				},
+				{
+					"name": "4.3 GET Liste - Filtre par nom FR",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/countries?nameFr=Jap",
+							"host": ["{{baseUrl}}"],
+							"path": ["countries"],
+							"query": [
+								{ "key": "nameFr", "value": "Jap" }
+							]
+						},
+						"description": "Recherche partielle par nom français."
+					}
+				},
+				{
+					"name": "4.4 GET Pays par code (avec langues)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/countries/FR",
+							"host": ["{{baseUrl}}"],
+							"path": ["countries", "FR"]
+						},
+						"description": "Détail d'un pays avec ses langues parlées (groupe `country:read:with-languages`)."
+					}
+				},
+				{
+					"name": "4.5 POST Créer un pays (admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/ld+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"KR\",\n    \"alpha3\": \"KOR\",\n    \"nameOriginal\": \"대한민국\",\n    \"nameEn\": \"South Korea\",\n    \"nameFr\": \"Corée du Sud\",\n    \"flag\": \"🇰🇷\",\n    \"demonymFr\": \"Coréen\",\n    \"demonymEn\": \"Korean\",\n    \"spokenLanguages\": [\"/api/languages/ko\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/countries",
+							"host": ["{{baseUrl}}"],
+							"path": ["countries"]
+						},
+						"description": "Création d'un pays. Réservé ADMIN plateforme."
+					}
+				},
+				{
+					"name": "4.6 PATCH Modifier un pays (admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/merge-patch+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"flag\": \"🇫🇷\",\n    \"demonymFr\": \"Français\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/countries/FR",
+							"host": ["{{baseUrl}}"],
+							"path": ["countries", "FR"]
+						},
+						"description": "Modification partielle d'un pays. Réservé ADMIN plateforme."
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Languages",
+			"description": "Gestion des langues (référentiel ISO 639-1)",
+			"item": [
+				{
+					"name": "5.1 GET Liste des langues",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.test('Liste des langues récupérée', function () {",
+									"        var json = pm.response.json();",
+									"        pm.expect(json['hydra:member']).to.be.an('array');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/languages",
+							"host": ["{{baseUrl}}"],
+							"path": ["languages"]
+						},
+						"description": "Liste paginée de toutes les langues. **Accès public.**"
+					}
+				},
+				{
+					"name": "5.2 GET Liste - Filtre par code",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/languages?code=fr",
+							"host": ["{{baseUrl}}"],
+							"path": ["languages"],
+							"query": [
+								{ "key": "code", "value": "fr" }
+							]
+						},
+						"description": "Recherche par code ISO exact."
+					}
+				},
+				{
+					"name": "5.3 GET Liste - Filtre par nom FR",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/languages?nameFr=Japo",
+							"host": ["{{baseUrl}}"],
+							"path": ["languages"],
+							"query": [
+								{ "key": "nameFr", "value": "Japo" }
+							]
+						},
+						"description": "Recherche partielle par nom français."
+					}
+				},
+				{
+					"name": "5.4 GET Langue par code",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/languages/fr",
+							"host": ["{{baseUrl}}"],
+							"path": ["languages", "fr"]
+						},
+						"description": "Détail d'une langue."
+					}
+				},
+				{
+					"name": "5.5 POST Créer une langue (admin)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/ld+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"ko\",\n    \"nameOriginal\": \"한국어\",\n    \"nameEn\": \"Korean\",\n    \"nameFr\": \"Coréen\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/languages",
+							"host": ["{{baseUrl}}"],
+							"path": ["languages"]
+						},
+						"description": "Création d'une langue. Réservé ADMIN plateforme."
+					}
+				},
+				{
+					"name": "5.6 PATCH Modifier une langue (admin)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/merge-patch+json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nameFr\": \"Français\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/languages/fr",
+							"host": ["{{baseUrl}}"],
+							"path": ["languages", "fr"]
+						},
+						"description": "Modification partielle d'une langue. Réservé ADMIN plateforme."
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Documentation",
+			"description": "Documentation API auto-générée",
+			"item": [
+				{
+					"name": "6.1 Swagger UI (docs)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/docs",
+							"host": ["{{baseUrl}}"],
+							"path": ["docs"]
+						},
+						"description": "Documentation Swagger / OpenAPI générée par API Platform. Accès public.\n\nOuvrir dans un navigateur pour l'interface interactive."
+					}
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,401 @@
+@startuml
+!define DONE << (✓,#22B463) done >>
+hide stereotype
+
+skinparam class {
+  BackgroundColor<<done>>  #C8E6C9
+  BorderColor<<done>>      #22B463
+  FontColor<<done>>        #145A32
+}
+
+
+left to right direction
+
+enum "CivilityEnum" <<enum>> DONE    {
+ M
+ MME
+ MLLE ' Ou MR, MRS, MS si préféré
+ AUTRE
+}
+enum "GenderEnum" DONE {
+ MASCULIN
+ FEMININ
+ AUTRE
+ NON_SPECIFIE
+}
+
+enum "OwnershipTypeEnum" DONE {
+    OWNER
+    BUYER
+}
+
+enum "InvoiceTypeEnum" {
+    INVOICE
+    CREDIT_NOTE
+}
+
+enum "InvoiceStatusEnum" {
+    DRAFT
+    ISSUED
+    PAID
+    CANCELLED
+}
+
+enum "BusinessTypeEnum" {
+    ENROLLMENT
+    TEST_LICENSE
+}
+
+enum "PaymentStatusEnum" {
+    PENDING
+    COMPLETED
+    FAILED
+    REFUNDED
+}
+
+enum "OperationCategoryEnum" {
+    SERVICE
+    GOODS
+    BOTH
+}
+
+enum "PaymentMethodEnum" {
+    STRIPE
+    BANK_TRANSFER
+    OTHER
+}
+
+
+class Country DONE {
+    -code: string
+    -alpha3: string
+    -nameOriginal: string
+    -nameEn: string
+    -nameFr: string
+    -flag: string
+    -demonymFr: string
+    -demonymEn: string
+}
+
+class Language DONE {
+    -code: string
+    -nameOriginal: string
+    -nameEn: string
+    -nameFr: string
+}
+
+class StripeAccount DONE  {
+  -stripeId: string
+  -isActivated: bool
+}
+
+class "Address" DONE <<ValueObject>>  {
+    -address1: string
+    -address2: string
+    -zipcode: string
+    -city: string
+    -country: Country
+}
+
+class "Counterparty" <<ValueObject>>  {
+    -name: string
+    -address: Address
+    -vatNumber: string
+    -siren: string
+    -siret: string
+    -legalForm: string
+    -shareCapital: string
+    -rcsCity: string
+}
+
+interface "Contactable"  {
+    +getName() string;
+    +getAddress(): string;
+    +getZipcode(): string;
+    +getCity(): string;
+    +getCountry(): string;
+}
+
+class Institute  <<Entity>> DONE  implements Contactable {
+    -label : string
+    -siteweb: string
+    -socialNetworks: json
+    -address: Address
+    -vatNumber:string
+    +getName() string;
+    +getAddress(): string;
+    +getZipcode(): string;
+    +getCity(): string;
+    +getCountry(): string;
+}
+
+
+class User DONE implements Contactable  {
+    -avatar: string
+    -email: string
+    -password: string
+    -civility: CivilityEnum
+    -gender: GenderEnum
+    -firstname: string
+    -lastname: string
+    -phone: string
+    -phoneCountryCode: string
+    -address: Address
+    -birthday: date
+    -nativeCountry: Country
+    -nationality: Country
+    -firstlanguage: Language
+    -isVerified: bool
+    -emailVerifiedAt: datetime
+    -isActive: bool
+    -createdAt: datetime
+    -updatedAt: datetime
+    -previousRegistrationNumber: string
+    -platformRole : PlatformRoleEnum
+    +getName() string;
+    +getAddress(): string;
+    +getZipcode(): string;
+    +getCity(): string;
+    +getCountry(): string;
+}
+
+class AssessmentOwnership DONE {
+    -ownershipType: OwnershipTypeEnum
+    -relationshipDate: Datetime
+    -user: User
+}
+
+class Assessment DONE {
+    -label: string
+    -ref: string
+    -isInternal: bool
+    -parent: Assessment
+}
+
+class Level DONE {
+    -label: string
+    -ref: string
+    -description: string
+}
+
+class Session DONE {
+    -start: datetime
+    -end: datetime
+    -limitDateSubscribe: datetime
+    -placesAvailable: int
+    -validation: enum { DRAFT, OPEN, CLOSE, CANCELLED }
+}
+
+class Payment  {
+    -amount: float
+    -currency: string
+    -status: PaymentStatusEnum
+    -date: datetime
+    -paymentMethod: PaymentMethodEnum
+    -stripePaymentIntentId: string
+    -refundedPayment: Payment
+}
+
+class Invoice  {
+    -invoiceNumber: string
+    -invoiceDate: datetime
+    -serviceDate: datetime
+    -seller: Counterparty
+    -buyer: Counterparty
+    -invoiceType: InvoiceTypeEnum
+    -businessType: BusinessTypeEnum
+    -operationCategory: OperationCategoryEnum
+    -paymentDueDate: datetime
+    -paymentTerms: string
+    -earlyPaymentDiscount: string
+    -latePaymentPenaltyRate: float
+    -fixedRecoveryIndemnity: float
+    -totalHT: float
+    -totalTVA: float
+    -totalTTC: float
+    -currency: string
+    -status: InvoiceStatusEnum
+    -creditedInvoice: Invoice
+    -pdfPath: string
+}
+
+class InvoiceLine  {
+    -label: string
+    -description: string
+    -quantity: int
+    -unitPriceHT: float
+    -tvaRate: float
+    -tvaAmount: float
+    -totalHT: float
+    -totalTTC: float
+}
+
+
+
+class EnrollmentSession DONE {
+    -registrationDate: datetime
+    -information: String
+}
+
+class Exam DONE {
+    -label: string
+    -isWritten: bool
+    -isOption: bool
+    -coeff: int
+    -nbrQuestions: int
+    -duration: int
+    -successScore: int
+    -assessment: Assessment
+    -level : Level
+    -price : Price
+}
+
+class EnrollmentExam  {
+    -finalScore: integer
+    -status: enum { REGISTERED, PASSED, FAILED }
+}
+
+class ScheduledExam DONE {
+    -startDate: datetime
+    -address: Address
+    -room: string
+}
+
+class Price DONE <<ValueObject>> {
+ -amount: float
+ -currency: string
+ -tva: float
+}
+
+class InstituteExamPricing  DONE {
+    -price: Price
+    -createdAt: datetime
+    -isActive: bool
+}
+
+class Skill DONE {
+    -label: string
+    -description: string
+    -parent: Skill
+}
+
+
+
+
+
+
+
+Exam "*" --[#green] "*" Skill
+Exam "1" <--[#green] "*" ScheduledExam
+Exam "1" --[#green] "*" InstituteExamPricing
+EnrollmentSession "1" o--[#green] "0..1" Invoice
+EnrollmentSession "1" --[#green] "*" EnrollmentExam
+EnrollmentExam "*" --[#green] "1" ScheduledExam
+
+Institute "1" --[#green] "*" InstituteExamPricing
+Institute "1" --[#green]> "0..1" StripeAccount
+Institute "1" --[#green] "*" AssessmentOwnership
+InvoiceLine "*" --[#green]> "0..1" Exam
+Invoice "1" o--[#green] "*" Payment
+Invoice "0..1" --[#green] "0..1" Invoice : creditedInvoice
+Invoice "1" o--[#green] "*" InvoiceLine
+
+Level "1" --[#green] "0..*" Exam
+
+
+
+
+
+Session "*" --[#green]> "1" Assessment
+Session "*" --[#green]> "1" Level
+Session "1" --[#green] "*" EnrollmentSession
+Session "1" --[#green] "*" ScheduledExam
+ScheduledExam "*" --[#green]> "1..*" User : examinators
+Skill "0..1" -[#green]> "0..1" Skill : parent
+
+Assessment "1" --[#green] "*" AssessmentOwnership
+Assessment "1" --[#green] "0..*" Assessment : parent
+Assessment "1" --[#green] "0..*" Skill
+Assessment "*" --[#green]> "*"  Level
+Assessment "1" --[#green] "0..*" Exam
+
+User "1" --[#green] "*" EnrollmentSession
+
+
+AssessmentOwnership "1" -- "0..*" Invoice
+
+
+note right of Assessment
+  Un test ne peut être utilisé en Session
+  que s'il possède au moins un Skill
+  (car les questions sont rattachées à des compétences)
+
+  **Propriété d'un test :**
+  - isInternal=true : c'est la plateforme le propriétaire du test.
+  - isInternal=false : créé par un institut,
+    AssessmentOwnership(OWNER) obligatoire.
+  - Dans les deux cas, un institut peut acheter
+    le test via AssessmentOwnership(BUYER).
+end note
+
+
+
+note right of Invoice
+  **Conformité légale (Art. 242 nonies A du CGI) :**
+  - Une facture ISSUED est **immutable** (loi anti-fraude NF525)
+  - Correction uniquement par émission d'un **avoir** (CREDIT_NOTE)
+  - Numérotation séquentielle, unique, sans rupture
+  - Conservation 10 ans minimum
+  - Format Factur-X (PDF/A-3 + XML) pour e-invoicing
+
+  **Cycle de vie :**
+  DRAFT -> ISSUED -> PAID
+  ISSUED -> CANCELLED (via avoir)
+
+  **Deux flux :**
+  - ENROLLMENT : B2C (institut -> candidat)
+  - TEST_LICENSE : B2B (institut -> institut)
+end note
+
+note right of ScheduledExam
+  Joue le rôle de classe d'association enrichie
+  entre Exam et Session, avec infos de planification
+end note
+
+
+
+' ─────────── NOUVEAU SYSTÈME DE RÔLES ───────────
+
+' Portée plateforme (valeur par défaut : USER)
+enum "PlatformRoleEnum" DONE {
+  ADMIN
+  USER
+}
+
+' Portée Institute
+enum "InstituteRoleEnum"  DONE{
+  ADMIN
+  TEACHER
+  STAFF
+  CUSTOMER
+}
+
+
+' Jointure enrichie User ↔ Institute
+class InstituteMembership DONE  {
+  -role  : InstituteRoleEnum
+  -since : datetime
+}
+' Associations
+User     "1" --[#green] "0..*" InstituteMembership : membership
+Institute "1"    --[#green] "0..*" InstituteMembership
+
+Session "*" -- "1" Institute
+
+Country "1" --[#green] "*" Language : spokenLanguages
+User "*" --[#green]> "0..1" Country : nativeCountry
+User "*" --[#green]> "0..1" Country : nationality
+User "*" --[#green]> "0..1" Language : firstlanguage
+
+
+@enduml
