@@ -31,10 +31,9 @@ class InstituteMembershipProvider implements ProviderInterface
             throw new NotFoundHttpException('Institut introuvable.');
         }
 
-        /** @var User $currentUser */
         $currentUser = $this->security->getUser();
 
-        if (!$this->canViewMembers($currentUser, $institute)) {
+        if (!$currentUser instanceof User || !$this->canViewMembers($currentUser, $institute)) {
             throw new AccessDeniedHttpException('Vous n\'avez pas les droits pour voir les membres de cet institut.');
         }
 
