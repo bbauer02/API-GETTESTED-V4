@@ -17,6 +17,7 @@ use App\Enum\GenderEnum;
 use App\Enum\PlatformRoleEnum;
 use App\Interface\ContactableInterface;
 use App\Repository\UserRepository;
+use App\State\UserMePatchProcessor;
 use App\State\UserMeProvider;
 use App\State\UserRegistrationProcessor;
 use App\State\UserSoftDeleteProcessor;
@@ -46,9 +47,11 @@ use Symfony\Component\Validator\Constraints as Assert;
         new Patch(
             uriTemplate: '/users/me',
             provider: UserMeProvider::class,
+            processor: UserMePatchProcessor::class,
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             denormalizationContext: ['groups' => ['user:write:self']],
             normalizationContext: ['groups' => ['user:read:self']],
+            validationContext: ['groups' => ['user:write:self']],
             name: 'user_me_patch',
         ),
         new GetCollection(
@@ -71,6 +74,7 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
             denormalizationContext: ['groups' => ['user:write:admin']],
             normalizationContext: ['groups' => ['user:read:admin']],
+            validationContext: ['groups' => ['user:write:admin']],
         ),
         new Delete(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
@@ -96,7 +100,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self'])]
     #[Assert\NotBlank]
     #[Assert\Email]
     #[Assert\Length(max: 180)]
@@ -113,7 +117,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     private ?string $avatar = null;
 
     #[ORM\Column(enumType: CivilityEnum::class)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self'])]
     #[Assert\NotBlank]
     private ?CivilityEnum $civility = null;
 
@@ -122,13 +126,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     private ?GenderEnum $gender = null;
 
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     private ?string $firstname = null;
 
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     private ?string $lastname = null;

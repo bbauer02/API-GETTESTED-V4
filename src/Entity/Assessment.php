@@ -100,9 +100,10 @@ class Assessment
     #[ORM\OneToMany(targetEntity: Exam::class, mappedBy: 'assessment')]
     private Collection $exams;
 
-    /** @var Collection<int, AssessmentOwnership> */
-    #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'assessment')]
-    private Collection $ownerships;
+    // TODO Sprint 1 : décommenter quand AssessmentOwnership sera créée
+    // /** @var Collection<int, AssessmentOwnership> */
+    // #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'assessment')]
+    // private Collection $ownerships;
 
     public function __construct()
     {
@@ -110,7 +111,8 @@ class Assessment
         $this->levels = new ArrayCollection();
         $this->skills = new ArrayCollection();
         $this->exams = new ArrayCollection();
-        $this->ownerships = new ArrayCollection();
+        // TODO Sprint 1
+        // $this->ownerships = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -215,9 +217,10 @@ class Assessment
         return $this->exams;
     }
 
-    /** @return Collection<int, AssessmentOwnership> */
-    public function getOwnerships(): Collection
-    {
-        return $this->ownerships;
-    }
+    // TODO Sprint 1
+    // /** @return Collection<int, AssessmentOwnership> */
+    // public function getOwnerships(): Collection
+    // {
+    //     return $this->ownerships;
+    // }
 }

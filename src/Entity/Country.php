@@ -43,46 +43,46 @@ class Country
 {
     #[ORM\Id]
     #[ORM\Column(length: 2)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(exactly: 2)]
     private ?string $code = null;
 
     #[ORM\Column(length: 3, unique: true)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(exactly: 3)]
     private ?string $alpha3 = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameOriginal = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameEn = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameFr = null;
 
     #[ORM\Column(length: 10, nullable: true)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     private ?string $flag = null;
 
     #[ORM\Column(length: 100, nullable: true)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\Length(max: 100)]
     private ?string $demonymFr = null;
 
     #[ORM\Column(length: 100, nullable: true)]
-    #[Groups(['country:read', 'country:write'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
     #[Assert\Length(max: 100)]
     private ?string $demonymEn = null;
 

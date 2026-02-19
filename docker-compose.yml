@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./:/app
+      - app_var:/app/var
+      - app_vendor:/app/vendor
       - caddy_data:/data
       - caddy_config:/config
     ports:
@@ -56,3 +58,5 @@ volumes:
   database_data:
   caddy_data:
   caddy_config:
+  app_var:
+  app_vendor:

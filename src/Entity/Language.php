@@ -43,25 +43,25 @@ class Language
 {
     #[ORM\Id]
     #[ORM\Column(length: 3)]
-    #[Groups(['language:read', 'language:write', 'country:read:with-languages'])]
+    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(min: 2, max: 3)]
     private ?string $code = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['language:read', 'language:write', 'country:read:with-languages'])]
+    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameOriginal = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['language:read', 'language:write', 'country:read:with-languages'])]
+    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameEn = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['language:read', 'language:write', 'country:read:with-languages'])]
+    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameFr = null;

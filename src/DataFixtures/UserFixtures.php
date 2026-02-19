@@ -2,7 +2,9 @@
 
 namespace App\DataFixtures;
 
+use App\Entity\Country;
 use App\Entity\Embeddable\Address;
+use App\Entity\Language;
 use App\Entity\User;
 use App\Enum\CivilityEnum;
 use App\Enum\GenderEnum;
@@ -189,15 +191,15 @@ class UserFixtures extends Fixture implements DependentFixtureInterface
         }
 
         if ($nationalityCode !== null) {
-            $user->setNationality($this->getReference('country_' . $nationalityCode));
+            $user->setNationality($this->getReference('country_' . $nationalityCode, Country::class));
         }
 
         if ($firstlanguageCode !== null) {
-            $user->setFirstlanguage($this->getReference('language_' . $firstlanguageCode));
+            $user->setFirstlanguage($this->getReference('language_' . $firstlanguageCode, Language::class));
         }
 
         if ($countryCode !== null) {
-            $user->setNativeCountry($this->getReference('country_' . $countryCode));
+            $user->setNativeCountry($this->getReference('country_' . $countryCode, Country::class));
         }
 
         if ($isVerified) {

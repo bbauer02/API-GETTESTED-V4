@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Address;
 use App\Interface\ContactableInterface;
 use App\Repository\InstituteRepository;
+use App\State\InstituteCreateProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -30,12 +31,13 @@ use Symfony\Component\Validator\Constraints as Assert;
             normalizationContext: ['groups' => ['institute:read']],
         ),
         new Post(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
             denormalizationContext: ['groups' => ['institute:write']],
             normalizationContext: ['groups' => ['institute:read']],
+            processor: InstituteCreateProcessor::class,
         ),
         new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('INSTITUTE_EDIT', object)",
             denormalizationContext: ['groups' => ['institute:write']],
             normalizationContext: ['groups' => ['institute:read']],
         ),
@@ -89,25 +91,27 @@ class Institute implements ContactableInterface
     #[ORM\OneToMany(targetEntity: InstituteMembership::class, mappedBy: 'institute', cascade: ['persist', 'remove'])]
     private Collection $memberships;
 
-    /** @var Collection<int, AssessmentOwnership> */
-    #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'institute')]
-    private Collection $assessmentOwnerships;
+    // TODO Sprint 1 : décommenter quand les entités seront créées
+    // /** @var Collection<int, AssessmentOwnership> */
+    // #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'institute')]
+    // private Collection $assessmentOwnerships;
 
-    /** @var Collection<int, Session> */
-    #[ORM\OneToMany(targetEntity: Session::class, mappedBy: 'institute')]
-    private Collection $sessions;
+    // /** @var Collection<int, Session> */
+    // #[ORM\OneToMany(targetEntity: Session::class, mappedBy: 'institute')]
+    // private Collection $sessions;
 
-    /** @var Collection<int, InstituteExamPricing> */
-    #[ORM\OneToMany(targetEntity: InstituteExamPricing::class, mappedBy: 'institute')]
-    private Collection $examPricings;
+    // /** @var Collection<int, InstituteExamPricing> */
+    // #[ORM\OneToMany(targetEntity: InstituteExamPricing::class, mappedBy: 'institute')]
+    // private Collection $examPricings;
 
     public function __construct()
     {
         $this->address = new Address();
         $this->memberships = new ArrayCollection();
-        $this->assessmentOwnerships = new ArrayCollection();
-        $this->sessions = new ArrayCollection();
-        $this->examPricings = new ArrayCollection();
+        // TODO Sprint 1
+        // $this->assessmentOwnerships = new ArrayCollection();
+        // $this->sessions = new ArrayCollection();
+        // $this->examPricings = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -209,23 +213,24 @@ class Institute implements ContactableInterface
         return $this;
     }
 
-    /** @return Collection<int, AssessmentOwnership> */
-    public function getAssessmentOwnerships(): Collection
-    {
-        return $this->assessmentOwnerships;
-    }
+    // TODO Sprint 1
+    // /** @return Collection<int, AssessmentOwnership> */
+    // public function getAssessmentOwnerships(): Collection
+    // {
+    //     return $this->assessmentOwnerships;
+    // }
 
-    /** @return Collection<int, Session> */
-    public function getSessions(): Collection
-    {
-        return $this->sessions;
-    }
+    // /** @return Collection<int, Session> */
+    // public function getSessions(): Collection
+    // {
+    //     return $this->sessions;
+    // }
 
-    /** @return Collection<int, InstituteExamPricing> */
-    public function getExamPricings(): Collection
-    {
-        return $this->examPricings;
-    }
+    // /** @return Collection<int, InstituteExamPricing> */
+    // public function getExamPricings(): Collection
+    // {
+    //     return $this->examPricings;
+    // }
 
     // ContactableInterface
     public function getName(): string

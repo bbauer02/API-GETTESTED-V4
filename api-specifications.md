@@ -29,7 +29,9 @@ Il est destiné à être utilisé conjointement avec `diagramme.puml` (modèle d
 
 ### Format de réponse
 
-- JSON-LD (format par défaut API Platform)
+- **JSON** (format par défaut, `application/json`)
+- JSON-LD disponible via `Accept: application/ld+json`
+- PATCH : `Content-Type: application/merge-patch+json` (obligatoire pour merge partiel)
 - Pagination : 30 éléments par page par défaut
 - Tri par défaut : `id ASC` sauf mention contraire
 
@@ -182,12 +184,40 @@ Représente une langue avec ses noms traduits. Données de référence en lectur
 | `POST` | `/api/auth/verify-email/{token}` | PUBLIC | Vérifie l'email. Passe `isVerified=true`, `emailVerifiedAt=now()`. |
 | `POST` | `/api/auth/forgot-password` | PUBLIC | Envoie un email de réinitialisation de mot de passe. |
 | `POST` | `/api/auth/reset-password/{token}` | PUBLIC | Réinitialise le mot de passe. |
-| `GET` | `/api/users/me` | SELF | Retourne le profil complet de l'utilisateur connecté. |
-| `PATCH` | `/api/users/me` | SELF | Modifie le profil de l'utilisateur connecté. |
+| `GET` | `/api/users/me` | SELF | Retourne le profil complet de l'utilisateur connecté. Les relations (nationality, nativeCountry, firstlanguage) sont embarquées en objets complets. |
+| `PATCH` | `/api/users/me` | SELF | Modifie le profil de l'utilisateur connecté. Voir détails ci-dessous. |
 | `GET` | `/api/users` | PLATFORM_ADMIN | Liste tous les utilisateurs (avec filtres). |
 | `GET` | `/api/users/{id}` | PLATFORM_ADMIN | Détail d'un utilisateur. |
-| `PATCH` | `/api/users/{id}` | PLATFORM_ADMIN | Modifie un utilisateur (isActive, platformRole...). |
+| `PATCH` | `/api/users/{id}` | PLATFORM_ADMIN | Modifie un utilisateur (isActive, platformRole). |
 | `DELETE` | `/api/users/{id}` | PLATFORM_ADMIN | Soft delete d'un utilisateur. |
+
+### `PATCH /api/users/me` — Champs modifiables et conditions
+
+**Content-Type obligatoire** : `application/merge-patch+json`
+
+| Champ | Type | Contraintes | Condition spéciale |
+|---|---|---|---|
+| `email` | string | Format email valide, unique, max 180 car. | **Changement → re-vérification** : `isVerified` passe à `false`, `emailVerifiedAt` à `null`, un email de vérification est envoyé au nouvel email |
+| `civility` | enum | Valeurs : `M`, `MME`, `MLLE`, `AUTRE` | — |
+| `firstname` | string | Non vide, max 100 car. | — |
+| `lastname` | string | Non vide, max 100 car. | — |
+| `avatar` | string | Max 255 car. (URL) | — |
+| `gender` | enum | Valeurs : `MASCULIN`, `FEMININ`, `AUTRE`, `NON_SPECIFIE` | — |
+| `phone` | string | Max 20 car. | — |
+| `phoneCountryCode` | string | Format `+XX` ou `+XXX`, max 5 car. | — |
+| `birthday` | date | Format `YYYY-MM-DD`, doit être dans le passé | — |
+| `address` | objet | Objet avec : `address1` (max 255), `address2` (max 255), `zipcode` (max 20), `city` (max 255), `countryCode` (2 car. ISO) | — |
+| `nativeCountry` | IRI | Format : `/api/countries/{code}`, doit référencer un pays existant | — |
+| `nationality` | IRI | Format : `/api/countries/{code}`, doit référencer un pays existant | — |
+| `firstlanguage` | IRI | Format : `/api/languages/{code}`, doit référencer une langue existante | — |
+| `previousRegistrationNumber` | string | Max 50 car. | — |
+
+### `PATCH /api/users/{id}` (PLATFORM_ADMIN) — Champs modifiables
+
+| Champ | Type | Contraintes |
+|---|---|---|
+| `isActive` | boolean | `true` / `false` |
+| `platformRole` | enum | Valeurs : `ADMIN`, `USER` |
 
 ### Groupes de sérialisation
 
@@ -197,7 +227,7 @@ Représente une langue avec ses noms traduits. Données de référence en lectur
 | `user:read:self` | Tous les champs sauf password, deletedAt | `GET /api/users/me` |
 | `user:read:admin` | Tous les champs sauf password | `GET /api/users/{id}` (PLATFORM_ADMIN) |
 | `user:write:register` | email, password, firstname, lastname, civility | `POST /api/auth/register` |
-| `user:write:self` | avatar, phone, phoneCountryCode, address, birthday, nativeCountry, nationality, firstlanguage, gender, previousRegistrationNumber | `PATCH /api/users/me` |
+| `user:write:self` | email, civility, firstname, lastname, avatar, phone, phoneCountryCode, address, birthday, nativeCountry, nationality, firstlanguage, gender, previousRegistrationNumber | `PATCH /api/users/me` |
 | `user:write:admin` | isActive, platformRole | `PATCH /api/users/{id}` (PLATFORM_ADMIN) |
 
 ### Filtres

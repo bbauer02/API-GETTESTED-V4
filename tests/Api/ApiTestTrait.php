@@ -3,6 +3,7 @@
 namespace App\Tests\Api;
 
 use App\DataFixtures\CountryFixtures;
+use App\DataFixtures\InstituteFixtures;
 use App\DataFixtures\LanguageFixtures;
 use App\DataFixtures\UserFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
@@ -24,6 +25,7 @@ trait ApiTestTrait
         $fixtureLoader->addFixture($container->get(LanguageFixtures::class));
         $fixtureLoader->addFixture($container->get(CountryFixtures::class));
         $fixtureLoader->addFixture($container->get(UserFixtures::class));
+        $fixtureLoader->addFixture($container->get(InstituteFixtures::class));
 
         $purger = new ORMPurger($em);
         $executor = new ORMExecutor($em, $purger);
