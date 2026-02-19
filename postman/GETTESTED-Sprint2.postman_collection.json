@@ -1,0 +1,912 @@
+{
+	"info": {
+		"name": "GETTESTED API - Sprint 2 — Instituts & Membres",
+		"description": "Collection complète des endpoints du Sprint 2 : gestion des instituts, voters, invitations et memberships.\n\n**Format par défaut : JSON** (`application/json`)\n\n---\n\n**Comptes fixtures :**\n- Admin plateforme : bbauer02@gmail.com / password123 (Baptiste Bauer)\n- User 1 (vérifiée) : umebosi1014@yahoo.co.jp / password123 (Ayaka Oyama)\n- User 2 (non vérifié) : cLefebre@gmail.com / password123 (Christophe Lefebre)\n- Inactif : didierMoulard@gmail.com / password123 (Didier Moulard)\n\n**Instituts fixtures :**\n- Institut Français (Paris) — Stripe activé\n- Tenri Japanese School (Paris) — Stripe activé\n\n**Memberships fixtures :**\n- Baptiste → Institut Français (CUSTOMER) + Tenri (CUSTOMER)\n- Ayaka → Institut Français (ADMIN)\n- Christophe → Tenri (CUSTOMER)\n- Didier → Tenri (TEACHER)\n\n---\n\n**Ordre d'exécution recommandé :**\n1. Login Admin (1.1) → récupère `admin_token`\n2. Login Ayaka (1.2) → récupère `jwt_token` + `user1_token`\n3. GET Instituts (2.1) → récupère `institute1_id` et `institute2_id`\n4. Tester les endpoints Institutes et Memberships",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://localhost/api"
+		},
+		{
+			"key": "jwt_token",
+			"value": ""
+		},
+		{
+			"key": "admin_token",
+			"value": ""
+		},
+		{
+			"key": "user1_token",
+			"value": ""
+		},
+		{
+			"key": "user2_token",
+			"value": ""
+		},
+		{
+			"key": "institute1_id",
+			"value": ""
+		},
+		{
+			"key": "institute2_id",
+			"value": ""
+		},
+		{
+			"key": "new_institute_id",
+			"value": ""
+		},
+		{
+			"key": "membership_id",
+			"value": ""
+		},
+		{
+			"key": "user2_id",
+			"value": ""
+		}
+	],
+	"item": [
+		{
+			"name": "1. Auth — Obtenir les tokens",
+			"description": "Se connecter avec différents comptes pour obtenir les JWT nécessaires aux tests.",
+			"item": [
+				{
+					"name": "1.1 Login Admin (Baptiste)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('admin_token', json.token);",
+									"    pm.collectionVariables.set('jwt_token', json.token);",
+									"    pm.test('Login admin réussi — token sauvé dans admin_token', function () {",
+									"        pm.expect(json.token).to.be.a('string');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"bbauer02@gmail.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Connexion Baptiste Bauer (PLATFORM_ADMIN).\n\nMemberships : CUSTOMER de Institut Français + CUSTOMER de Tenri."
+					}
+				},
+				{
+					"name": "1.2 Login Ayaka (INSTITUTE_ADMIN Institut Français)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('user1_token', json.token);",
+									"    pm.collectionVariables.set('jwt_token', json.token);",
+									"    pm.test('Login Ayaka réussi — token sauvé dans user1_token', function () {",
+									"        pm.expect(json.token).to.be.a('string');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"umebosi1014@yahoo.co.jp\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Connexion Ayaka Oyama (USER plateforme, ADMIN de Institut Français).\n\nPeut inviter des membres dans Institut Français."
+					}
+				},
+				{
+					"name": "1.3 Login Christophe (CUSTOMER Tenri)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('user2_token', json.token);",
+									"    pm.test('Login Christophe réussi — token sauvé dans user2_token', function () {",
+									"        pm.expect(json.token).to.be.a('string');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"cLefebre@gmail.com\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Connexion Christophe Lefebre (USER plateforme, CUSTOMER de Tenri).\n\nN'est PAS membre de Institut Français → ne peut pas voir ses memberships."
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Institutes — CRUD",
+			"description": "Gestion des instituts avec contrôle d'accès par voters.\n\n- GET collection/item : **public**\n- POST : authentifié (crée l'institut + membership ADMIN auto)\n- PATCH : INSTITUTE_ADMIN ou PLATFORM_ADMIN\n- DELETE : PLATFORM_ADMIN uniquement",
+			"item": [
+				{
+					"name": "2.1 GET Liste des instituts (public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.test('Liste publique récupérée', function () {",
+									"        pm.expect(json).to.be.an('array');",
+									"        pm.expect(json.length).to.be.at.least(2);",
+									"    });",
+									"    // Sauvegarder les IDs des deux instituts fixtures",
+									"    for (var i = 0; i < json.length; i++) {",
+									"        if (json[i].label === 'Institut Français') {",
+									"            pm.collectionVariables.set('institute1_id', json[i].id);",
+									"        }",
+									"        if (json[i].label === 'Tenri Japanese School') {",
+									"            pm.collectionVariables.set('institute2_id', json[i].id);",
+									"        }",
+									"    }",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/institutes",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes"]
+						},
+						"description": "Liste publique des instituts (aucune authentification requise).\n\nSauvegarde automatiquement `institute1_id` (Institut Français) et `institute2_id` (Tenri)."
+					}
+				},
+				{
+					"name": "2.2 GET Institut par ID (public)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Institut récupéré', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.label).to.be.a('string');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}"]
+						},
+						"description": "Détail d'un institut — accès public."
+					}
+				},
+				{
+					"name": "2.3 POST Créer un institut (authentifié)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('new_institute_id', json.id);",
+									"    pm.test('Institut créé + membership ADMIN auto', function () {",
+									"        pm.expect(json.label).to.eql('Alliance Française de Tokyo');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user1_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"label\": \"Alliance Française de Tokyo\",\n    \"siteweb\": \"www.alliance-francaise-tokyo.jp\",\n    \"socialNetworks\": {\n        \"facebook\": \"AFTokyo\",\n        \"instagram\": \"aftokyo\"\n    },\n    \"address\": {\n        \"address1\": \"1-12-3 Iidabashi\",\n        \"zipcode\": \"162-0824\",\n        \"city\": \"Tokyo\",\n        \"countryCode\": \"JP\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes"]
+						},
+						"description": "Crée un institut. Le créateur (Ayaka) reçoit automatiquement un membership ADMIN.\n\n**Requires :** IS_AUTHENTICATED_FULLY"
+					}
+				},
+				{
+					"name": "2.4 POST Créer un institut — SANS AUTH (doit échouer 401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Création refusée sans auth → 401', function () {",
+									"    pm.expect(pm.response.code).to.eql(401);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"label\": \"Test Sans Auth\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes"]
+						},
+						"description": "Tentative de création sans authentification → doit retourner 401."
+					}
+				},
+				{
+					"name": "2.5 PATCH Institut — En tant qu'INSTITUTE_ADMIN (Ayaka)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Modification réussie par INSTITUTE_ADMIN', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.siteweb).to.eql('www.institut-france-updated.fr');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user1_token}}" },
+							{ "key": "Content-Type", "value": "application/merge-patch+json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"siteweb\": \"www.institut-france-updated.fr\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}"]
+						},
+						"description": "Ayaka est ADMIN de Institut Français → peut modifier."
+					}
+				},
+				{
+					"name": "2.6 PATCH Institut — Non-membre (Christophe, doit échouer 403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Modification refusée pour non-membre → 403', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user2_token}}" },
+							{ "key": "Content-Type", "value": "application/merge-patch+json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"label\": \"Tentative non autorisée\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}"]
+						},
+						"description": "Christophe n'est PAS membre de Institut Français → 403 Forbidden."
+					}
+				},
+				{
+					"name": "2.7 PATCH Institut — En tant que PLATFORM_ADMIN (Baptiste)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Modification réussie par PLATFORM_ADMIN', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/merge-patch+json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"siteweb\": \"www.tenri-updated.co.jp\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute2_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute2_id}}"]
+						},
+						"description": "Baptiste est PLATFORM_ADMIN → peut modifier n'importe quel institut."
+					}
+				},
+				{
+					"name": "2.8 DELETE Institut — INSTITUTE_ADMIN (doit échouer 403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Suppression refusée pour INSTITUTE_ADMIN → 403', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user1_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}"]
+						},
+						"description": "Ayaka est INSTITUTE_ADMIN mais PAS PLATFORM_ADMIN → ne peut pas supprimer."
+					}
+				},
+				{
+					"name": "2.9 DELETE Institut — PLATFORM_ADMIN",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Suppression réussie par PLATFORM_ADMIN → 204', function () {",
+									"    pm.expect(pm.response.code).to.eql(204);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{new_institute_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{new_institute_id}}"]
+						},
+						"description": "Baptiste (PLATFORM_ADMIN) supprime l'institut créé en 2.3.\n\n**Attention :** Supprime l'institut Alliance Française de Tokyo créé précédemment."
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Memberships — Sous-ressource /institutes/{id}/memberships",
+			"description": "Endpoints de la sous-ressource memberships.\n\n- **GET** : tout membre authentifié de l'institut peut voir la liste\n- **POST** (invitation) : INSTITUTE_ADMIN ou PLATFORM_ADMIN uniquement",
+			"item": [
+				{
+					"name": "3.1 GET Memberships — En tant qu'INSTITUTE_ADMIN (Ayaka → Inst. Français)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.test('Memberships visibles par INSTITUTE_ADMIN', function () {",
+									"        pm.expect(json).to.be.an('array');",
+									"        pm.expect(json.length).to.eql(2);",
+									"    });",
+									"    pm.test('Contient les bons rôles', function () {",
+									"        var roles = json.map(function(m) { return m.role; });",
+									"        pm.expect(roles).to.include('ADMIN');",
+									"        pm.expect(roles).to.include('CUSTOMER');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user1_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}", "memberships"]
+						},
+						"description": "Ayaka (ADMIN de Institut Français) voit les 2 memberships :\n- Baptiste (CUSTOMER)\n- Ayaka (ADMIN)"
+					}
+				},
+				{
+					"name": "3.2 GET Memberships — En tant que CUSTOMER (Christophe → Tenri)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.test('Memberships visibles par membre non-ADMIN', function () {",
+									"        pm.expect(json).to.be.an('array');",
+									"        pm.expect(json.length).to.eql(3);",
+									"    });",
+									"    pm.test('Contient CUSTOMER, TEACHER', function () {",
+									"        var roles = json.map(function(m) { return m.role; });",
+									"        pm.expect(roles).to.include('CUSTOMER');",
+									"        pm.expect(roles).to.include('TEACHER');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user2_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute2_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute2_id}}", "memberships"]
+						},
+						"description": "Christophe (CUSTOMER de Tenri) peut voir les 3 memberships de Tenri :\n- Baptiste (CUSTOMER)\n- Christophe (CUSTOMER)\n- Didier (TEACHER)\n\n**Sprint 2 correction :** tout membre peut voir, pas seulement ADMIN."
+					}
+				},
+				{
+					"name": "3.3 GET Memberships — En tant que PLATFORM_ADMIN (Baptiste → Tenri)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Memberships visibles par PLATFORM_ADMIN', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.be.an('array');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute2_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute2_id}}", "memberships"]
+						},
+						"description": "Baptiste (PLATFORM_ADMIN) peut voir les memberships de n'importe quel institut."
+					}
+				},
+				{
+					"name": "3.4 GET Memberships — Non-membre (Christophe → Inst. Français, doit échouer 403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Accès refusé pour non-membre → 403', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user2_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}", "memberships"]
+						},
+						"description": "Christophe n'est PAS membre de Institut Français → 403 Forbidden."
+					}
+				},
+				{
+					"name": "3.5 GET Memberships — Sans auth (doit échouer 401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Accès refusé sans auth → 401', function () {",
+									"    pm.expect(pm.response.code).to.eql(401);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}", "memberships"]
+						},
+						"description": "Accès anonyme à la sous-ressource memberships → 401 Unauthorized."
+					}
+				},
+				{
+					"name": "3.6 POST Invitation — INSTITUTE_ADMIN invite Christophe dans Inst. Français",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('membership_id', json.id);",
+									"    pm.test('Invitation réussie', function () {",
+									"        pm.expect(json.role).to.eql('TEACHER');",
+									"    });",
+									"}"
+								]
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Récupérer l'ID de Christophe pour l'invitation",
+									"// D'abord exécuter 4.1 pour avoir user2_id, ou le copier manuellement"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user1_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user\": \"/api/users/{{user2_id}}\",\n    \"role\": \"TEACHER\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute1_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute1_id}}", "memberships"]
+						},
+						"description": "Ayaka (INSTITUTE_ADMIN de Institut Français) invite Christophe en tant que TEACHER.\n\n**Prérequis :** Remplir `{{user2_id}}` avec l'UUID de Christophe (visible depuis GET /api/users en tant qu'admin, ou via 4.1).\n\n**Rôles disponibles :** ADMIN, TEACHER, STAFF, CUSTOMER"
+					}
+				},
+				{
+					"name": "3.7 POST Invitation — Non-ADMIN (Christophe, doit échouer 403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Invitation refusée pour non-ADMIN → 403', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user2_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user\": \"/api/users/{{user2_id}}\",\n    \"role\": \"STAFF\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute2_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute2_id}}", "memberships"]
+						},
+						"description": "Christophe est CUSTOMER de Tenri → ne peut PAS inviter (pas ADMIN)."
+					}
+				},
+				{
+					"name": "3.8 POST Invitation doublon (doit échouer 422)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Doublon refusé → 422', function () {",
+									"    pm.expect(pm.response.code).to.eql(422);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user\": \"/api/users/{{user2_id}}\",\n    \"role\": \"TEACHER\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institutes/{{institute2_id}}/memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institutes", "{{institute2_id}}", "memberships"]
+						},
+						"description": "Christophe est déjà CUSTOMER de Tenri → impossible de l'ajouter à nouveau.\n\n**Note :** Baptiste (PLATFORM_ADMIN) peut inviter, mais la vérification de doublon bloque."
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Memberships — CRUD Admin /api/institute_memberships",
+			"description": "Endpoints CRUD standard pour la gestion directe des memberships.\n\n**Tous réservés PLATFORM_ADMIN.**",
+			"item": [
+				{
+					"name": "4.1 GET Liste de tous les memberships (admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.test('Liste complète des memberships', function () {",
+									"        pm.expect(json).to.be.an('array');",
+									"        pm.expect(json.length).to.be.at.least(5);",
+									"    });",
+									"    // Sauvegarder le premier membership_id et user2_id",
+									"    if (json.length > 0) {",
+									"        pm.collectionVariables.set('membership_id', json[0].id);",
+									"    }",
+									"    // Trouver Christophe (cLefebre) pour user2_id",
+									"    for (var i = 0; i < json.length; i++) {",
+									"        if (json[i].user && json[i].user.email === 'cLefebre@gmail.com') {",
+									"            pm.collectionVariables.set('user2_id', json[i].user.id);",
+									"        }",
+									"    }",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institute_memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institute_memberships"]
+						},
+						"description": "Liste de tous les memberships de la plateforme. Réservé PLATFORM_ADMIN.\n\nSauvegarde automatiquement `membership_id` et `user2_id`."
+					}
+				},
+				{
+					"name": "4.2 GET Membership par ID (admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Membership récupéré', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.role).to.be.a('string');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institute_memberships/{{membership_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institute_memberships", "{{membership_id}}"]
+						},
+						"description": "Détail d'un membership par UUID. Réservé PLATFORM_ADMIN."
+					}
+				},
+				{
+					"name": "4.3 PATCH Membership — Changer le rôle (admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Rôle modifié', function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.role).to.eql('STAFF');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" },
+							{ "key": "Content-Type", "value": "application/merge-patch+json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"role\": \"STAFF\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/institute_memberships/{{membership_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institute_memberships", "{{membership_id}}"]
+						},
+						"description": "Modification du rôle d'un membership. Réservé PLATFORM_ADMIN.\n\n**Rôles :** ADMIN, TEACHER, STAFF, CUSTOMER"
+					}
+				},
+				{
+					"name": "4.4 GET Memberships — Non-admin (doit échouer 403)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Accès CRUD admin refusé pour user standard → 403', function () {",
+									"    pm.expect(pm.response.code).to.eql(403);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{user1_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institute_memberships",
+							"host": ["{{baseUrl}}"],
+							"path": ["institute_memberships"]
+						},
+						"description": "Ayaka (USER plateforme) n'a pas accès au CRUD admin des memberships."
+					}
+				},
+				{
+					"name": "4.5 DELETE Membership (admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Membership supprimé → 204', function () {",
+									"    pm.expect(pm.response.code).to.eql(204);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{admin_token}}" }
+						],
+						"url": {
+							"raw": "{{baseUrl}}/institute_memberships/{{membership_id}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["institute_memberships", "{{membership_id}}"]
+						},
+						"description": "Suppression d'un membership. Réservé PLATFORM_ADMIN.\n\n**Attention :** Action destructive — supprime définitivement le lien utilisateur/institut."
+					}
+				}
+			]
+		}
+	]
+}

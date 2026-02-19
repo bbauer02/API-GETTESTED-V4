@@ -10,7 +10,7 @@ Chaque sprint est **autonome et testable**. On ne passe au sprint suivant que lo
 |--------|---------|--------|
 | 0 | Fondations (User, Country, Language, Auth JWT) | ✅ |
 | 1 | Entités du domaine métier (12 entités, 3 enums, 12 repositories) | ✅ |
-| 2 | Instituts & Membres (logique métier, voters, invitation, tests) | → À faire |
+| 2 | Instituts & Membres (logique métier, voters, invitation, tests) | ✅ |
 | 3 | Catalogue de tests (Assessment endpoints, ownership, pricing, validations) | Planifié |
 | 4 | Sessions & Planification (state machine, transitions, ScheduledExam) | Planifié |
 | 5 | Inscriptions (EnrollmentSession, EnrollmentExam, scores) | Planifié |
@@ -74,24 +74,26 @@ Chaque sprint est **autonome et testable**. On ne passe au sprint suivant que lo
 
 ---
 
-## Sprint 2 — Instituts & Membres
+## Sprint 2 — Instituts & Membres ✅
 **Objectif** : logique métier des instituts, système de membership, voters et invitations.
 
 ### Prérequis : Sprint 1 validé
 
 ### Livrables
-- [ ] Fixtures Institute (2 instituts de test)
-- [ ] `InstituteVoter` (VIEW, EDIT, DELETE, MANAGE_MEMBERS)
-- [ ] Opérations API Platform de `Institute` avec voters
-- [ ] `InstituteCreateProcessor` (membership ADMIN auto à la création)
-- [ ] Sous-ressource `POST /api/institutes/{id}/memberships` (invitation)
-- [ ] `MembershipInviteProcessor` + `InstituteMembershipProvider`
-- [ ] Access control dans `security.yaml`
-- [ ] Tests fonctionnels : CRUD institut, invitation, rôles
+- [x] Fixtures Institute (2 instituts de test)
+- [x] `InstituteVoter` (VIEW, EDIT, DELETE, MANAGE_MEMBERS)
+- [x] Opérations API Platform de `Institute` avec voters
+- [x] `InstituteCreateProcessor` (membership ADMIN auto à la création)
+- [x] Sous-ressource `POST /api/institutes/{id}/memberships` (invitation)
+- [x] `MembershipInviteProcessor` + `InstituteMembershipProvider`
+- [x] Access control dans `security.yaml`
+- [x] Tests fonctionnels : CRUD institut, invitation, rôles
+- [x] `GET /api/institutes/{id}/memberships` accessible par tout membre (pas seulement ADMIN)
 
 ### Critères de validation
 - `POST /api/institutes` → crée un institut + membership ADMIN automatique pour le créateur
 - `POST /api/institutes/{id}/memberships` → seul INSTITUTE_ADMIN peut inviter
+- `GET /api/institutes/{id}/memberships` → tout membre de l'institut peut voir
 - `GET /api/institutes` → liste publique (200 sans auth)
 - `PATCH /api/institutes/{id}` → interdit si pas INSTITUTE_ADMIN ou PLATFORM_ADMIN
 - `DELETE /api/institutes/{id}` → réservé PLATFORM_ADMIN

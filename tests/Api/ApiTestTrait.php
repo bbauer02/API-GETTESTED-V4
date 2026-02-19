@@ -7,7 +7,6 @@ use App\DataFixtures\InstituteFixtures;
 use App\DataFixtures\LanguageFixtures;
 use App\DataFixtures\UserFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -21,15 +20,16 @@ trait ApiTestTrait
         // Disable soft delete filter during fixture loading
         $em->getFilters()->disable('soft_delete');
 
-        $fixtureLoader = new Loader();
-        $fixtureLoader->addFixture($container->get(LanguageFixtures::class));
-        $fixtureLoader->addFixture($container->get(CountryFixtures::class));
-        $fixtureLoader->addFixture($container->get(UserFixtures::class));
-        $fixtureLoader->addFixture($container->get(InstituteFixtures::class));
+        $fixtures = [
+            $container->get(LanguageFixtures::class),
+            $container->get(CountryFixtures::class),
+            $container->get(UserFixtures::class),
+            $container->get(InstituteFixtures::class),
+        ];
 
         $purger = new ORMPurger($em);
         $executor = new ORMExecutor($em, $purger);
-        $executor->execute($fixtureLoader->getFixtures());
+        $executor->execute($fixtures);
 
         // Re-enable soft delete filter
         $em->getFilters()->enable('soft_delete');

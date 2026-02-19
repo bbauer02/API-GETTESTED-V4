@@ -46,13 +46,17 @@ use Symfony\Component\Validator\Constraints as Assert;
     uriTemplate: '/institutes/{instituteId}/memberships',
     operations: [
         new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
             provider: InstituteMembershipProvider::class,
             normalizationContext: ['groups' => ['membership:read']],
         ),
         new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
             processor: MembershipInviteProcessor::class,
             denormalizationContext: ['groups' => ['membership:invite']],
             normalizationContext: ['groups' => ['membership:read']],
+            validationContext: ['groups' => ['membership:invite']],
         ),
     ],
     uriVariables: [
@@ -73,7 +77,7 @@ class InstituteMembership
 
     #[ORM\Column(enumType: InstituteRoleEnum::class)]
     #[Groups(['membership:read', 'membership:write', 'membership:invite'])]
-    #[Assert\NotBlank]
+    #[Assert\NotBlank(groups: ['Default', 'membership:invite'])]
     private ?InstituteRoleEnum $role = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
@@ -83,7 +87,7 @@ class InstituteMembership
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['membership:read', 'membership:write', 'membership:invite'])]
-    #[Assert\NotNull]
+    #[Assert\NotNull(groups: ['Default', 'membership:invite'])]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Institute::class, inversedBy: 'memberships')]
