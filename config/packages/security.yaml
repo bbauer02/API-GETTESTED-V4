@@ -39,6 +39,8 @@ security:
         - { path: ^/api/institutes/[^/]+/ownerships, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes/[^/]+/exam-pricings, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes/[^/]+/sessions, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/sessions/[^/]+/enroll, methods: [POST], roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/sessions/[^/]+/enrollments, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/transition, methods: [PATCH], roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/scheduled-exams, methods: [POST], roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes, methods: [GET], roles: PUBLIC_ACCESS }

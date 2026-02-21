@@ -4,6 +4,7 @@ namespace App\DataFixtures;
 
 use App\Entity\Assessment;
 use App\Entity\Embeddable\Address;
+use App\Entity\EnrollmentExam;
 use App\Entity\EnrollmentSession;
 use App\Entity\Exam;
 use App\Entity\Institute;
@@ -11,6 +12,7 @@ use App\Entity\Level;
 use App\Entity\ScheduledExam;
 use App\Entity\Session;
 use App\Entity\User;
+use App\Enum\EnrollmentExamStatusEnum;
 use App\Enum\SessionValidationEnum;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
@@ -42,6 +44,8 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
         $user1 = $this->getReference('user_user1', User::class);
         /** @var User $user2 */
         $user2 = $this->getReference('user_user2', User::class);
+        /** @var User $inactive */
+        $inactive = $this->getReference('user_inactive', User::class);
 
         // Session TOEIC — Institut Français (OPEN)
         $session = new Session();
@@ -70,8 +74,9 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
         $address->setCountryCode('FR');
         $scheduledExam->setAddress($address);
 
-        // Ajouter un examinateur (Ayaka — TEACHER/ADMIN de l'institut)
-        $scheduledExam->addExaminator($user1);
+        // Ajouter des examinateurs
+        $scheduledExam->addExaminator($user1); // Ayaka — ADMIN de l'institut
+        $scheduledExam->addExaminator($inactive); // Didier — TEACHER de Tenri (examinateur supplémentaire)
 
         $manager->persist($scheduledExam);
         $this->addReference('scheduled_exam_listening', $scheduledExam);
@@ -82,6 +87,30 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
         $enrollment->setUser($user2);
         $enrollment->setRegistrationDate(new \DateTime('2026-02-15 10:00:00'));
         $manager->persist($enrollment);
+        $this->addReference('enrollment_christophe', $enrollment);
+
+        // EnrollmentExam pour Christophe — Listening
+        $enrollmentExam = new EnrollmentExam();
+        $enrollmentExam->setEnrollmentSession($enrollment);
+        $enrollmentExam->setScheduledExam($scheduledExam);
+        $enrollmentExam->setStatus(EnrollmentExamStatusEnum::REGISTERED);
+        $manager->persist($enrollmentExam);
+        $this->addReference('enrollment_exam_christophe_listening', $enrollmentExam);
+
+        // EnrollmentSession — Didier inscrit (2e enrollment pour tests multi-users)
+        $enrollmentDidier = new EnrollmentSession();
+        $enrollmentDidier->setSession($session);
+        $enrollmentDidier->setUser($inactive);
+        $enrollmentDidier->setRegistrationDate(new \DateTime('2026-02-16 14:00:00'));
+        $manager->persist($enrollmentDidier);
+        $this->addReference('enrollment_didier', $enrollmentDidier);
+
+        // EnrollmentExam pour Didier — Listening
+        $enrollmentExamDidier = new EnrollmentExam();
+        $enrollmentExamDidier->setEnrollmentSession($enrollmentDidier);
+        $enrollmentExamDidier->setScheduledExam($scheduledExam);
+        $enrollmentExamDidier->setStatus(EnrollmentExamStatusEnum::REGISTERED);
+        $manager->persist($enrollmentExamDidier);
 
         // Session DRAFT — Institut Français (pour tester create/edit/delete/transition)
         $sessionDraft = new Session();

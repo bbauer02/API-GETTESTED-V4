@@ -65,16 +65,16 @@ class ScheduledExam
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['scheduled_exam:read', 'session:read'])]
+    #[Groups(['scheduled_exam:read', 'session:read', 'enrollment_exam:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(['scheduled_exam:read', 'scheduled_exam:write', 'session:read'])]
+    #[Groups(['scheduled_exam:read', 'scheduled_exam:write', 'session:read', 'enrollment_exam:read'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $startDate = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['scheduled_exam:read', 'scheduled_exam:write', 'session:read'])]
+    #[Groups(['scheduled_exam:read', 'scheduled_exam:write', 'session:read', 'enrollment_exam:read'])]
     #[Assert\Length(max: 255)]
     private ?string $room = null;
 
@@ -84,7 +84,7 @@ class ScheduledExam
 
     #[ORM\ManyToOne(targetEntity: Exam::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['scheduled_exam:read', 'scheduled_exam:write', 'session:read'])]
+    #[Groups(['scheduled_exam:read', 'scheduled_exam:write', 'session:read', 'enrollment_exam:read'])]
     #[Assert\NotNull]
     private ?Exam $exam = null;
 

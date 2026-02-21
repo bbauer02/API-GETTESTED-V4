@@ -15,6 +15,8 @@ use App\Enum\SessionValidationEnum;
 use App\Repository\SessionRepository;
 use App\State\InstituteSessionCreateProcessor;
 use App\State\InstituteSessionProvider;
+use App\State\SessionEnrollmentProvider;
+use App\State\SessionEnrollProcessor;
 use App\State\SessionPatchProcessor;
 use App\State\SessionSoftDeleteProcessor;
 use App\State\SessionTransitionProcessor;
@@ -78,6 +80,36 @@ use Symfony\Component\Validator\Constraints as Assert;
             fromProperty: 'sessions',
             fromClass: Institute::class,
         ),
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/sessions/{sessionId}/enroll',
+    operations: [
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: SessionEnrollProcessor::class,
+            normalizationContext: ['groups' => ['enrollment:read']],
+            output: EnrollmentSession::class,
+            validate: false,
+            name: 'session_enroll',
+        ),
+    ],
+    uriVariables: [
+        'sessionId' => new Link(toClass: Session::class),
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/sessions/{sessionId}/enrollments',
+    operations: [
+        new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: SessionEnrollmentProvider::class,
+            normalizationContext: ['groups' => ['enrollment:read']],
+        ),
+    ],
+    uriVariables: [
+        'sessionId' => new Link(toClass: Session::class),
     ],
 )]
 #[ApiFilter(SearchFilter::class, properties: [

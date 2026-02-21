@@ -5,10 +5,10 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
 use App\Repository\EnrollmentSessionRepository;
+use App\State\EnrollmentCancelProcessor;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
@@ -18,26 +18,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: EnrollmentSessionRepository::class)]
 #[ApiResource(
     operations: [
-        new GetCollection(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            normalizationContext: ['groups' => ['enrollment:read']],
-        ),
         new Get(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            normalizationContext: ['groups' => ['enrollment:read']],
-        ),
-        new Post(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            denormalizationContext: ['groups' => ['enrollment:write']],
-            normalizationContext: ['groups' => ['enrollment:read']],
-        ),
-        new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
-            denormalizationContext: ['groups' => ['enrollment:write']],
+            security: "is_granted('ENROLLMENT_VIEW', object)",
             normalizationContext: ['groups' => ['enrollment:read']],
         ),
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('ENROLLMENT_CANCEL', object)",
+            processor: EnrollmentCancelProcessor::class,
         ),
     ],
     paginationItemsPerPage: 30,
@@ -52,25 +39,35 @@ class EnrollmentSession
     private ?Uuid $id = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(['enrollment:read', 'enrollment:write', 'session:read'])]
+    #[Groups(['enrollment:read', 'session:read'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $registrationDate = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
-    #[Groups(['enrollment:read', 'enrollment:write', 'session:read'])]
+    #[Groups(['enrollment:read', 'session:read'])]
     private ?string $information = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['enrollment:read', 'enrollment:write', 'session:read'])]
+    #[Groups(['enrollment:read', 'session:read'])]
     #[Assert\NotNull]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Session::class, inversedBy: 'enrollments')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['enrollment:read', 'enrollment:write'])]
+    #[Groups(['enrollment:read'])]
     #[Assert\NotNull]
     private ?Session $session = null;
+
+    /** @var Collection<int, EnrollmentExam> */
+    #[ORM\OneToMany(targetEntity: EnrollmentExam::class, mappedBy: 'enrollmentSession')]
+    #[Groups(['enrollment:read'])]
+    private Collection $enrollmentExams;
+
+    public function __construct()
+    {
+        $this->enrollmentExams = new ArrayCollection();
+    }
 
     public function getId(): ?Uuid
     {
@@ -119,5 +116,11 @@ class EnrollmentSession
     {
         $this->session = $session;
         return $this;
+    }
+
+    /** @return Collection<int, EnrollmentExam> */
+    public function getEnrollmentExams(): Collection
+    {
+        return $this->enrollmentExams;
     }
 }
