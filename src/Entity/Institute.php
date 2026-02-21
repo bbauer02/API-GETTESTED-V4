@@ -56,11 +56,11 @@ class Institute implements ContactableInterface
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['institute:read'])]
+    #[Groups(['institute:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:write', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
@@ -91,27 +91,25 @@ class Institute implements ContactableInterface
     #[ORM\OneToMany(targetEntity: InstituteMembership::class, mappedBy: 'institute', cascade: ['persist', 'remove'])]
     private Collection $memberships;
 
-    // TODO Sprint 1 : décommenter quand les entités seront créées
-    // /** @var Collection<int, AssessmentOwnership> */
-    // #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'institute')]
-    // private Collection $assessmentOwnerships;
+    /** @var Collection<int, AssessmentOwnership> */
+    #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'institute', cascade: ['remove'])]
+    private Collection $assessmentOwnerships;
 
-    // /** @var Collection<int, Session> */
-    // #[ORM\OneToMany(targetEntity: Session::class, mappedBy: 'institute')]
-    // private Collection $sessions;
+    /** @var Collection<int, Session> */
+    #[ORM\OneToMany(targetEntity: Session::class, mappedBy: 'institute', cascade: ['remove'])]
+    private Collection $sessions;
 
-    // /** @var Collection<int, InstituteExamPricing> */
-    // #[ORM\OneToMany(targetEntity: InstituteExamPricing::class, mappedBy: 'institute')]
-    // private Collection $examPricings;
+    /** @var Collection<int, InstituteExamPricing> */
+    #[ORM\OneToMany(targetEntity: InstituteExamPricing::class, mappedBy: 'institute', cascade: ['remove'])]
+    private Collection $examPricings;
 
     public function __construct()
     {
         $this->address = new Address();
         $this->memberships = new ArrayCollection();
-        // TODO Sprint 1
-        // $this->assessmentOwnerships = new ArrayCollection();
-        // $this->sessions = new ArrayCollection();
-        // $this->examPricings = new ArrayCollection();
+        $this->assessmentOwnerships = new ArrayCollection();
+        $this->sessions = new ArrayCollection();
+        $this->examPricings = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -213,24 +211,23 @@ class Institute implements ContactableInterface
         return $this;
     }
 
-    // TODO Sprint 1
-    // /** @return Collection<int, AssessmentOwnership> */
-    // public function getAssessmentOwnerships(): Collection
-    // {
-    //     return $this->assessmentOwnerships;
-    // }
+    /** @return Collection<int, AssessmentOwnership> */
+    public function getAssessmentOwnerships(): Collection
+    {
+        return $this->assessmentOwnerships;
+    }
 
-    // /** @return Collection<int, Session> */
-    // public function getSessions(): Collection
-    // {
-    //     return $this->sessions;
-    // }
+    /** @return Collection<int, Session> */
+    public function getSessions(): Collection
+    {
+        return $this->sessions;
+    }
 
-    // /** @return Collection<int, InstituteExamPricing> */
-    // public function getExamPricings(): Collection
-    // {
-    //     return $this->examPricings;
-    // }
+    /** @return Collection<int, InstituteExamPricing> */
+    public function getExamPricings(): Collection
+    {
+        return $this->examPricings;
+    }
 
     // ContactableInterface
     public function getName(): string

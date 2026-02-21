@@ -9,23 +9,23 @@ use Symfony\Component\Serializer\Annotation\Groups;
 class Address
 {
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write'])]
+    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write', 'session:read'])]
     private ?string $address1 = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write'])]
+    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write', 'session:read'])]
     private ?string $address2 = null;
 
     #[ORM\Column(length: 20, nullable: true)]
-    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write'])]
+    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write', 'session:read'])]
     private ?string $zipcode = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write'])]
+    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write', 'session:read'])]
     private ?string $city = null;
 
     #[ORM\Column(length: 2, nullable: true)]
-    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write'])]
+    #[Groups(['address:read', 'address:write', 'user:read:self', 'user:read:admin', 'user:write:self', 'institute:read', 'institute:write', 'session:read'])]
     private ?string $countryCode = null;
 
     public function getAddress1(): ?string

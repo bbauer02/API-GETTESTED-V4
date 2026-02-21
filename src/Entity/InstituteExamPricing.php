@@ -6,10 +6,13 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Price;
 use App\Repository\InstituteExamPricingRepository;
+use App\State\InstituteExamPricingCreateProcessor;
+use App\State\InstituteExamPricingProvider;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
@@ -44,17 +47,41 @@ use Symfony\Component\Validator\Constraints as Assert;
     ],
     paginationItemsPerPage: 30,
 )]
+#[ApiResource(
+    uriTemplate: '/institutes/{instituteId}/exam-pricings',
+    operations: [
+        new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: InstituteExamPricingProvider::class,
+            normalizationContext: ['groups' => ['exam_pricing:read']],
+        ),
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: InstituteExamPricingCreateProcessor::class,
+            denormalizationContext: ['groups' => ['exam_pricing:write']],
+            normalizationContext: ['groups' => ['exam_pricing:read']],
+            validationContext: ['groups' => ['exam_pricing:create_sub']],
+        ),
+    ],
+    uriVariables: [
+        'instituteId' => new Link(
+            fromProperty: 'examPricings',
+            fromClass: Institute::class,
+        ),
+    ],
+)]
 class InstituteExamPricing
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['exam_pricing:read'])]
+    #[Groups(['exam_pricing:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Embedded(class: Price::class, columnPrefix: 'price_')]
-    #[Groups(['exam_pricing:read', 'exam_pricing:write'])]
+    #[Groups(['exam_pricing:read', 'exam_pricing:write', 'session:read'])]
     private Price $price;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
@@ -74,7 +101,7 @@ class InstituteExamPricing
     #[ORM\ManyToOne(targetEntity: Exam::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['exam_pricing:read', 'exam_pricing:write'])]
-    #[Assert\NotNull]
+    #[Assert\NotNull(groups: ['Default', 'exam_pricing:create_sub'])]
     private ?Exam $exam = null;
 
     public function __construct()
@@ -103,7 +130,7 @@ class InstituteExamPricing
         return $this->createdAt;
     }
 
-    #[Groups(['exam_pricing:read'])]
+    #[Groups(['exam_pricing:read', 'session:read'])]
     public function isActive(): bool
     {
         return $this->isActive;

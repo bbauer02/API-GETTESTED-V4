@@ -21,6 +21,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: SessionRepository::class)]
+#[ORM\Table(name: '`session`')]
 #[ApiResource(
     operations: [
         new GetCollection(
@@ -57,12 +58,12 @@ class Session
     #[Groups(['session:read'])]
     private ?Uuid $id = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(name: '`start`', type: Types::DATETIME_MUTABLE)]
     #[Groups(['session:read', 'session:write'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $start = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(name: '`end`', type: Types::DATETIME_MUTABLE)]
     #[Groups(['session:read', 'session:write'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $end = null;
@@ -103,6 +104,7 @@ class Session
 
     /** @var Collection<int, EnrollmentSession> */
     #[ORM\OneToMany(targetEntity: EnrollmentSession::class, mappedBy: 'session')]
+    #[Groups(['session:read'])]
     private Collection $enrollments;
 
     public function __construct()

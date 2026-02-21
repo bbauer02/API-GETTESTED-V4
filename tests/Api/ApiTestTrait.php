@@ -2,9 +2,14 @@
 
 namespace App\Tests\Api;
 
+use App\DataFixtures\AssessmentFixtures;
 use App\DataFixtures\CountryFixtures;
+use App\DataFixtures\ExamFixtures;
 use App\DataFixtures\InstituteFixtures;
 use App\DataFixtures\LanguageFixtures;
+use App\DataFixtures\LevelFixtures;
+use App\DataFixtures\SessionFixtures;
+use App\DataFixtures\SkillFixtures;
 use App\DataFixtures\UserFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
@@ -25,6 +30,11 @@ trait ApiTestTrait
             $container->get(CountryFixtures::class),
             $container->get(UserFixtures::class),
             $container->get(InstituteFixtures::class),
+            $container->get(LevelFixtures::class),
+            $container->get(SkillFixtures::class),
+            $container->get(AssessmentFixtures::class),
+            $container->get(ExamFixtures::class),
+            $container->get(SessionFixtures::class),
         ];
 
         $purger = new ORMPurger($em);

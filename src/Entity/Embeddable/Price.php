@@ -9,15 +9,15 @@ use Symfony\Component\Serializer\Annotation\Groups;
 class Price
 {
     #[ORM\Column(type: 'float', nullable: true)]
-    #[Groups(['price:read', 'price:write'])]
+    #[Groups(['price:read', 'price:write', 'exam:read', 'exam:write', 'exam_pricing:read', 'exam_pricing:write', 'session:read'])]
     private ?float $amount = null;
 
     #[ORM\Column(length: 3, nullable: true)]
-    #[Groups(['price:read', 'price:write'])]
+    #[Groups(['price:read', 'price:write', 'exam:read', 'exam:write', 'exam_pricing:read', 'exam_pricing:write', 'session:read'])]
     private ?string $currency = null;
 
     #[ORM\Column(type: 'float', nullable: true)]
-    #[Groups(['price:read', 'price:write'])]
+    #[Groups(['price:read', 'price:write', 'exam:read', 'exam:write', 'exam_pricing:read', 'exam_pricing:write', 'session:read'])]
     private ?float $tva = null;
 
     public function getAmount(): ?float

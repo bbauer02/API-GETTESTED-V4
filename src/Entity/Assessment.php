@@ -9,9 +9,11 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\AssessmentRepository;
+use App\State\InstituteAssessmentCreateProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -34,15 +36,33 @@ use Symfony\Component\Validator\Constraints as Assert;
             normalizationContext: ['groups' => ['assessment:read']],
         ),
         new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('ASSESSMENT_EDIT', object)",
             denormalizationContext: ['groups' => ['assessment:write']],
             normalizationContext: ['groups' => ['assessment:read']],
         ),
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('ASSESSMENT_DELETE', object)",
         ),
     ],
     paginationItemsPerPage: 30,
+)]
+#[ApiResource(
+    uriTemplate: '/institutes/{instituteId}/assessments',
+    operations: [
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: InstituteAssessmentCreateProcessor::class,
+            denormalizationContext: ['groups' => ['assessment:write']],
+            normalizationContext: ['groups' => ['assessment:read']],
+        ),
+    ],
+    uriVariables: [
+        'instituteId' => new Link(
+            fromProperty: 'assessmentOwnerships',
+            fromClass: Institute::class,
+        ),
+    ],
 )]
 #[ApiFilter(SearchFilter::class, properties: [
     'label' => 'partial',
@@ -55,11 +75,11 @@ class Assessment
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['assessment:read'])]
+    #[Groups(['assessment:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['assessment:read', 'assessment:write'])]
+    #[Groups(['assessment:read', 'assessment:write', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
@@ -100,10 +120,9 @@ class Assessment
     #[ORM\OneToMany(targetEntity: Exam::class, mappedBy: 'assessment')]
     private Collection $exams;
 
-    // TODO Sprint 1 : décommenter quand AssessmentOwnership sera créée
-    // /** @var Collection<int, AssessmentOwnership> */
-    // #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'assessment')]
-    // private Collection $ownerships;
+    /** @var Collection<int, AssessmentOwnership> */
+    #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'assessment')]
+    private Collection $ownerships;
 
     public function __construct()
     {
@@ -111,8 +130,7 @@ class Assessment
         $this->levels = new ArrayCollection();
         $this->skills = new ArrayCollection();
         $this->exams = new ArrayCollection();
-        // TODO Sprint 1
-        // $this->ownerships = new ArrayCollection();
+        $this->ownerships = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -217,10 +235,9 @@ class Assessment
         return $this->exams;
     }
 
-    // TODO Sprint 1
-    // /** @return Collection<int, AssessmentOwnership> */
-    // public function getOwnerships(): Collection
-    // {
-    //     return $this->ownerships;
-    // }
+    /** @return Collection<int, AssessmentOwnership> */
+    public function getOwnerships(): Collection
+    {
+        return $this->ownerships;
+    }
 }

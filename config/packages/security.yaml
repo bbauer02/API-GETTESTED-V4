@@ -35,7 +35,16 @@ security:
         - { path: ^/api/countries, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/languages, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/institutes/[^/]+/memberships, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/assessments, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/ownerships, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/exam-pricings, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/assessments, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/levels, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/skills, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/exams, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/sessions, methods: [GET], roles: PUBLIC_ACCESS }
+        - { path: ^/api/scheduled_exams, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 

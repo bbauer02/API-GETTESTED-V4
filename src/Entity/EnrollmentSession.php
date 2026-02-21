@@ -48,21 +48,21 @@ class EnrollmentSession
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['enrollment:read'])]
+    #[Groups(['enrollment:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(['enrollment:read', 'enrollment:write'])]
+    #[Groups(['enrollment:read', 'enrollment:write', 'session:read'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $registrationDate = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
-    #[Groups(['enrollment:read', 'enrollment:write'])]
+    #[Groups(['enrollment:read', 'enrollment:write', 'session:read'])]
     private ?string $information = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['enrollment:read', 'enrollment:write'])]
+    #[Groups(['enrollment:read', 'enrollment:write', 'session:read'])]
     #[Assert\NotNull]
     private ?User $user = null;
 

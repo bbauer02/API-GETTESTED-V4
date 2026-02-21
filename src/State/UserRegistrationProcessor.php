@@ -53,6 +53,7 @@ class UserRegistrationProcessor implements ProcessorInterface
         ]);
 
         $email = (new Email())
+            ->from('noreply@gettested.fr')
             ->to($user->getEmail())
             ->subject('Vérification de votre adresse email - GETTESTED')
             ->html($html);

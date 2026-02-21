@@ -9,10 +9,12 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Price;
 use App\Repository\ExamRepository;
+use App\State\AssessmentExamCreateProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -35,15 +37,37 @@ use Symfony\Component\Validator\Constraints as Assert;
             normalizationContext: ['groups' => ['exam:read']],
         ),
         new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('ASSESSMENT_EDIT', object.getAssessment())",
             denormalizationContext: ['groups' => ['exam:write']],
             normalizationContext: ['groups' => ['exam:read']],
         ),
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('ASSESSMENT_DELETE', object.getAssessment())",
         ),
     ],
     paginationItemsPerPage: 30,
+)]
+#[ApiResource(
+    uriTemplate: '/assessments/{assessmentId}/exams',
+    operations: [
+        new GetCollection(
+            normalizationContext: ['groups' => ['exam:read']],
+        ),
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: AssessmentExamCreateProcessor::class,
+            denormalizationContext: ['groups' => ['exam:write']],
+            normalizationContext: ['groups' => ['exam:read']],
+            validationContext: ['groups' => ['exam:create_sub']],
+        ),
+    ],
+    uriVariables: [
+        'assessmentId' => new Link(
+            fromProperty: 'exams',
+            fromClass: Assessment::class,
+        ),
+    ],
 )]
 #[ApiFilter(SearchFilter::class, properties: [
     'label' => 'partial',
@@ -55,13 +79,13 @@ class Exam
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['exam:read'])]
+    #[Groups(['exam:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['exam:read', 'exam:write'])]
-    #[Assert\NotBlank]
-    #[Assert\Length(max: 255)]
+    #[Groups(['exam:read', 'exam:write', 'session:read'])]
+    #[Assert\NotBlank(groups: ['Default', 'exam:create_sub'])]
+    #[Assert\Length(max: 255, groups: ['Default', 'exam:create_sub'])]
     private ?string $label = null;
 
     #[ORM\Column]
@@ -106,7 +130,7 @@ class Exam
     private Collection $skills;
 
     #[ORM\Embedded(class: Price::class, columnPrefix: 'price_')]
-    #[Groups(['exam:read', 'exam:write'])]
+    #[Groups(['exam:read', 'exam:write', 'session:read'])]
     private Price $price;
 
     public function __construct()

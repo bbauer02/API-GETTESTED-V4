@@ -96,11 +96,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Email]
     #[Assert\Length(max: 180)]
@@ -126,13 +126,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     private ?GenderEnum $gender = null;
 
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     private ?string $firstname = null;
 
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     private ?string $lastname = null;

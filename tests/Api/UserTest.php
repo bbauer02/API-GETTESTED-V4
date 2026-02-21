@@ -114,8 +114,11 @@ class UserTest extends WebTestCase
         ]));
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-        $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertFalse($data['isActive']);
+
+        // Vérifier via la DB (le sérialiseur Symfony expose 'active' et non 'isActive')
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $updatedUser = $em->getRepository(User::class)->findOneBy(['email' => UserFixtures::USER1_EMAIL]);
+        $this->assertFalse($updatedUser->isActive());
     }
 
     public function testAdminSoftDeleteUser(): void

@@ -51,11 +51,11 @@ class Level
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['level:read'])]
+    #[Groups(['level:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['level:read', 'level:write'])]
+    #[Groups(['level:read', 'level:write', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
