@@ -8,10 +8,16 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Enum\SessionValidationEnum;
 use App\Repository\SessionRepository;
+use App\State\InstituteSessionCreateProcessor;
+use App\State\InstituteSessionProvider;
+use App\State\SessionPatchProcessor;
+use App\State\SessionSoftDeleteProcessor;
+use App\State\SessionTransitionProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -30,21 +36,49 @@ use Symfony\Component\Validator\Constraints as Assert;
         new Get(
             normalizationContext: ['groups' => ['session:read']],
         ),
-        new Post(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
-            denormalizationContext: ['groups' => ['session:write']],
+        new Patch(
+            security: "is_granted('SESSION_EDIT', object)",
+            denormalizationContext: ['groups' => ['session:update']],
             normalizationContext: ['groups' => ['session:read']],
+            processor: SessionPatchProcessor::class,
         ),
         new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
-            denormalizationContext: ['groups' => ['session:write']],
+            uriTemplate: '/sessions/{id}/transition',
+            security: "is_granted('SESSION_TRANSITION', object)",
+            denormalizationContext: ['groups' => ['session:transition']],
             normalizationContext: ['groups' => ['session:read']],
+            processor: SessionTransitionProcessor::class,
         ),
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('SESSION_DELETE', object)",
+            processor: SessionSoftDeleteProcessor::class,
         ),
     ],
     paginationItemsPerPage: 30,
+)]
+#[ApiResource(
+    uriTemplate: '/institutes/{instituteId}/sessions',
+    operations: [
+        new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: InstituteSessionProvider::class,
+            normalizationContext: ['groups' => ['session:read']],
+        ),
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: InstituteSessionCreateProcessor::class,
+            denormalizationContext: ['groups' => ['session:write']],
+            normalizationContext: ['groups' => ['session:read']],
+            validate: false,
+        ),
+    ],
+    uriVariables: [
+        'instituteId' => new Link(
+            fromProperty: 'sessions',
+            fromClass: Institute::class,
+        ),
+    ],
 )]
 #[ApiFilter(SearchFilter::class, properties: [
     'validation' => 'exact',
@@ -59,25 +93,25 @@ class Session
     private ?Uuid $id = null;
 
     #[ORM\Column(name: '`start`', type: Types::DATETIME_MUTABLE)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read', 'session:write', 'session:update'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $start = null;
 
     #[ORM\Column(name: '`end`', type: Types::DATETIME_MUTABLE)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read', 'session:write', 'session:update'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $end = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read', 'session:write', 'session:update'])]
     private ?\DateTimeInterface $limitDateSubscribe = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read', 'session:write', 'session:update'])]
     private ?int $placesAvailable = null;
 
     #[ORM\Column(enumType: SessionValidationEnum::class)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read'])]
     private SessionValidationEnum $validation = SessionValidationEnum::DRAFT;
 
     #[ORM\ManyToOne(targetEntity: Assessment::class)]
@@ -93,8 +127,7 @@ class Session
 
     #[ORM\ManyToOne(targetEntity: Institute::class, inversedBy: 'sessions')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['session:read', 'session:write'])]
-    #[Assert\NotNull]
+    #[Groups(['session:read'])]
     private ?Institute $institute = null;
 
     /** @var Collection<int, ScheduledExam> */
@@ -106,6 +139,12 @@ class Session
     #[ORM\OneToMany(targetEntity: EnrollmentSession::class, mappedBy: 'session')]
     #[Groups(['session:read'])]
     private Collection $enrollments;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $deletedAt = null;
+
+    #[Groups(['session:transition'])]
+    private ?string $transition = null;
 
     public function __construct()
     {
@@ -216,5 +255,27 @@ class Session
     public function getEnrollments(): Collection
     {
         return $this->enrollments;
+    }
+
+    public function getDeletedAt(): ?\DateTimeInterface
+    {
+        return $this->deletedAt;
+    }
+
+    public function setDeletedAt(?\DateTimeInterface $deletedAt): static
+    {
+        $this->deletedAt = $deletedAt;
+        return $this;
+    }
+
+    public function getTransition(): ?string
+    {
+        return $this->transition;
+    }
+
+    public function setTransition(?string $transition): static
+    {
+        $this->transition = $transition;
+        return $this;
     }
 }

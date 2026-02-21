@@ -38,10 +38,12 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
         $levelB2 = $this->getReference('level_B2', Level::class);
         /** @var Exam $listening */
         $listening = $this->getReference('exam_toeic_listening', Exam::class);
+        /** @var User $user1 */
+        $user1 = $this->getReference('user_user1', User::class);
         /** @var User $user2 */
         $user2 = $this->getReference('user_user2', User::class);
 
-        // Session TOEIC — Institut Français
+        // Session TOEIC — Institut Français (OPEN)
         $session = new Session();
         $session->setInstitute($institute);
         $session->setAssessment($toeic);
@@ -68,7 +70,11 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
         $address->setCountryCode('FR');
         $scheduledExam->setAddress($address);
 
+        // Ajouter un examinateur (Ayaka — TEACHER/ADMIN de l'institut)
+        $scheduledExam->addExaminator($user1);
+
         $manager->persist($scheduledExam);
+        $this->addReference('scheduled_exam_listening', $scheduledExam);
 
         // EnrollmentSession — Christophe inscrit
         $enrollment = new EnrollmentSession();
@@ -76,6 +82,36 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
         $enrollment->setUser($user2);
         $enrollment->setRegistrationDate(new \DateTime('2026-02-15 10:00:00'));
         $manager->persist($enrollment);
+
+        // Session DRAFT — Institut Français (pour tester create/edit/delete/transition)
+        $sessionDraft = new Session();
+        $sessionDraft->setInstitute($institute);
+        $sessionDraft->setAssessment($toeic);
+        $sessionDraft->setLevel($levelB2);
+        $sessionDraft->setStart(new \DateTime('2026-04-01 09:00:00'));
+        $sessionDraft->setEnd(new \DateTime('2026-04-01 17:00:00'));
+        $sessionDraft->setLimitDateSubscribe(new \DateTime('2026-03-25 23:59:59'));
+        $sessionDraft->setPlacesAvailable(20);
+        $sessionDraft->setValidation(SessionValidationEnum::DRAFT);
+        $manager->persist($sessionDraft);
+        $this->addReference('session_draft', $sessionDraft);
+
+        // ScheduledExam pour la session draft
+        $scheduledExamDraft = new ScheduledExam();
+        $scheduledExamDraft->setSession($sessionDraft);
+        $scheduledExamDraft->setExam($listening);
+        $scheduledExamDraft->setStartDate(new \DateTime('2026-04-01 09:00:00'));
+        $scheduledExamDraft->setRoom('Salle B');
+
+        $addressDraft = new Address();
+        $addressDraft->setAddress1('15 rue de Tokyo');
+        $addressDraft->setCity('Paris');
+        $addressDraft->setZipcode('75001');
+        $addressDraft->setCountryCode('FR');
+        $scheduledExamDraft->setAddress($addressDraft);
+
+        $manager->persist($scheduledExamDraft);
+        $this->addReference('scheduled_exam_draft', $scheduledExamDraft);
 
         $manager->flush();
     }

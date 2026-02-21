@@ -1,2 +1,33 @@
 framework:
-    workflows: null
+    workflows:
+        session_lifecycle:
+            type: 'state_machine'
+            audit_trail:
+                enabled: true
+            marking_store:
+                type: 'method'
+                property: 'validation'
+            supports:
+                - App\Entity\Session
+            initial_marking: DRAFT
+            places:
+                - DRAFT
+                - OPEN
+                - CLOSE
+                - CANCELLED
+            transitions:
+                open:
+                    from: DRAFT
+                    to: OPEN
+                close:
+                    from: OPEN
+                    to: CLOSE
+                cancel_from_draft:
+                    from: DRAFT
+                    to: CANCELLED
+                cancel_from_open:
+                    from: OPEN
+                    to: CANCELLED
+                cancel_from_close:
+                    from: CLOSE
+                    to: CANCELLED

@@ -6,10 +6,12 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Address;
 use App\Repository\ScheduledExamRepository;
+use App\State\ScheduledExamCreateProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -21,27 +23,41 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: ScheduledExamRepository::class)]
 #[ApiResource(
     operations: [
-        new GetCollection(
-            normalizationContext: ['groups' => ['scheduled_exam:read']],
-        ),
         new Get(
             normalizationContext: ['groups' => ['scheduled_exam:read']],
         ),
-        new Post(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
-            denormalizationContext: ['groups' => ['scheduled_exam:write']],
-            normalizationContext: ['groups' => ['scheduled_exam:read']],
-        ),
         new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('SCHEDULED_EXAM_EDIT', object)",
             denormalizationContext: ['groups' => ['scheduled_exam:write']],
             normalizationContext: ['groups' => ['scheduled_exam:read']],
         ),
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('SCHEDULED_EXAM_DELETE', object)",
         ),
     ],
     paginationItemsPerPage: 30,
+)]
+#[ApiResource(
+    uriTemplate: '/sessions/{sessionId}/scheduled-exams',
+    operations: [
+        new GetCollection(
+            normalizationContext: ['groups' => ['scheduled_exam:read']],
+        ),
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: ScheduledExamCreateProcessor::class,
+            denormalizationContext: ['groups' => ['scheduled_exam:write']],
+            normalizationContext: ['groups' => ['scheduled_exam:read']],
+            validate: false,
+        ),
+    ],
+    uriVariables: [
+        'sessionId' => new Link(
+            fromProperty: 'scheduledExams',
+            fromClass: Session::class,
+        ),
+    ],
 )]
 class ScheduledExam
 {
@@ -74,7 +90,7 @@ class ScheduledExam
 
     #[ORM\ManyToOne(targetEntity: Session::class, inversedBy: 'scheduledExams')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['scheduled_exam:read', 'scheduled_exam:write'])]
+    #[Groups(['scheduled_exam:read'])]
     #[Assert\NotNull]
     private ?Session $session = null;
 
