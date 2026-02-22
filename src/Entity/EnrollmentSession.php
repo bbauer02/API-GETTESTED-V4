@@ -64,9 +64,15 @@ class EnrollmentSession
     #[Groups(['enrollment:read'])]
     private Collection $enrollmentExams;
 
+    /** @var Collection<int, Invoice> */
+    #[ORM\OneToMany(targetEntity: Invoice::class, mappedBy: 'enrollmentSession')]
+    #[Groups(['enrollment:read'])]
+    private Collection $invoices;
+
     public function __construct()
     {
         $this->enrollmentExams = new ArrayCollection();
+        $this->invoices = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -122,5 +128,11 @@ class EnrollmentSession
     public function getEnrollmentExams(): Collection
     {
         return $this->enrollmentExams;
+    }
+
+    /** @return Collection<int, Invoice> */
+    public function getInvoices(): Collection
+    {
+        return $this->invoices;
     }
 }

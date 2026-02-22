@@ -6,6 +6,7 @@ use App\DataFixtures\AssessmentFixtures;
 use App\DataFixtures\CountryFixtures;
 use App\DataFixtures\ExamFixtures;
 use App\DataFixtures\InstituteFixtures;
+use App\DataFixtures\InvoiceFixtures;
 use App\DataFixtures\LanguageFixtures;
 use App\DataFixtures\LevelFixtures;
 use App\DataFixtures\SessionFixtures;
@@ -35,6 +36,7 @@ trait ApiTestTrait
             $container->get(AssessmentFixtures::class),
             $container->get(ExamFixtures::class),
             $container->get(SessionFixtures::class),
+            $container->get(InvoiceFixtures::class),
         ];
 
         $purger = new ORMPurger($em);

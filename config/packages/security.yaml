@@ -43,6 +43,11 @@ security:
         - { path: ^/api/sessions/[^/]+/enrollments, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/transition, methods: [PATCH], roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/scheduled-exams, methods: [POST], roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/invoices, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/invoices/[^/]+/issue, methods: [PATCH], roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/invoices/[^/]+/lines, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/invoices/[^/]+/payments, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/payments/[^/]+/(complete|fail|refund), methods: [PATCH], roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/assessments, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/levels, methods: [GET], roles: PUBLIC_ACCESS }

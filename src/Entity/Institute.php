@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Address;
+use App\Entity\Invoice;
 use App\Interface\ContactableInterface;
 use App\Repository\InstituteRepository;
 use App\State\InstituteCreateProcessor;
@@ -83,6 +84,31 @@ class Institute implements ContactableInterface
     #[Assert\Length(max: 50)]
     private ?string $vatNumber = null;
 
+    #[ORM\Column(length: 9, nullable: true)]
+    #[Groups(['institute:read', 'institute:write'])]
+    #[Assert\Length(max: 9)]
+    private ?string $siren = null;
+
+    #[ORM\Column(length: 14, nullable: true)]
+    #[Groups(['institute:read', 'institute:write'])]
+    #[Assert\Length(max: 14)]
+    private ?string $siret = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    #[Groups(['institute:read', 'institute:write'])]
+    #[Assert\Length(max: 50)]
+    private ?string $legalForm = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    #[Groups(['institute:read', 'institute:write'])]
+    #[Assert\Length(max: 50)]
+    private ?string $shareCapital = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    #[Groups(['institute:read', 'institute:write'])]
+    #[Assert\Length(max: 100)]
+    private ?string $rcsCity = null;
+
     #[ORM\OneToOne(mappedBy: 'institute', targetEntity: StripeAccount::class, cascade: ['persist', 'remove'])]
     #[Groups(['institute:read'])]
     private ?StripeAccount $stripeAccount = null;
@@ -103,6 +129,10 @@ class Institute implements ContactableInterface
     #[ORM\OneToMany(targetEntity: InstituteExamPricing::class, mappedBy: 'institute', cascade: ['remove'])]
     private Collection $examPricings;
 
+    /** @var Collection<int, Invoice> */
+    #[ORM\OneToMany(targetEntity: Invoice::class, mappedBy: 'institute', cascade: ['remove'])]
+    private Collection $invoices;
+
     public function __construct()
     {
         $this->address = new Address();
@@ -110,6 +140,7 @@ class Institute implements ContactableInterface
         $this->assessmentOwnerships = new ArrayCollection();
         $this->sessions = new ArrayCollection();
         $this->examPricings = new ArrayCollection();
+        $this->invoices = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -227,6 +258,67 @@ class Institute implements ContactableInterface
     public function getExamPricings(): Collection
     {
         return $this->examPricings;
+    }
+
+    /** @return Collection<int, Invoice> */
+    public function getInvoices(): Collection
+    {
+        return $this->invoices;
+    }
+
+    public function getSiren(): ?string
+    {
+        return $this->siren;
+    }
+
+    public function setSiren(?string $siren): static
+    {
+        $this->siren = $siren;
+        return $this;
+    }
+
+    public function getSiret(): ?string
+    {
+        return $this->siret;
+    }
+
+    public function setSiret(?string $siret): static
+    {
+        $this->siret = $siret;
+        return $this;
+    }
+
+    public function getLegalForm(): ?string
+    {
+        return $this->legalForm;
+    }
+
+    public function setLegalForm(?string $legalForm): static
+    {
+        $this->legalForm = $legalForm;
+        return $this;
+    }
+
+    public function getShareCapital(): ?string
+    {
+        return $this->shareCapital;
+    }
+
+    public function setShareCapital(?string $shareCapital): static
+    {
+        $this->shareCapital = $shareCapital;
+        return $this;
+    }
+
+    public function getRcsCity(): ?string
+    {
+        return $this->rcsCity;
+    }
+
+    public function setRcsCity(?string $rcsCity): static
+    {
+        $this->rcsCity = $rcsCity;
+        return $this;
     }
 
     // ContactableInterface
