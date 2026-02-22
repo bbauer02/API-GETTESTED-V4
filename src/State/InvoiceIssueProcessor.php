@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Invoice;
 use App\Enum\InvoiceStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class InvoiceIssueProcessor implements ProcessorInterface
@@ -22,7 +23,7 @@ class InvoiceIssueProcessor implements ProcessorInterface
         $invoice = $data;
 
         if ($invoice->getStatus() !== InvoiceStatusEnum::DRAFT) {
-            throw new UnprocessableEntityHttpException('Seule une facture en brouillon peut être émise.');
+            throw new ConflictHttpException('Seule une facture en brouillon peut être émise.');
         }
 
         if ($invoice->getLines()->isEmpty()) {

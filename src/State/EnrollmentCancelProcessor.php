@@ -10,6 +10,7 @@ use App\Enum\PlatformRoleEnum;
 use App\Enum\SessionValidationEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class EnrollmentCancelProcessor implements ProcessorInterface
@@ -33,7 +34,7 @@ class EnrollmentCancelProcessor implements ProcessorInterface
         // Vérifier que la session est OPEN (ou DRAFT pour admin)
         $validation = $session?->getValidation();
         if ($validation !== SessionValidationEnum::OPEN && !($isAdmin && $validation === SessionValidationEnum::DRAFT)) {
-            throw new UnprocessableEntityHttpException('Impossible d\'annuler l\'inscription : la session n\'est pas ouverte.');
+            throw new ConflictHttpException('Impossible d\'annuler l\'inscription : la session n\'est pas ouverte.');
         }
 
         // Vérifier la date limite (sauf admin)

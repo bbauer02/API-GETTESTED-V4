@@ -371,7 +371,7 @@ class SessionTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ]);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================
@@ -421,7 +421,7 @@ class SessionTest extends WebTestCase
             'transition' => 'open',
         ]));
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     public function testTransitionAsNonAdminForbidden(): void

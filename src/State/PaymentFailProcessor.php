@@ -7,7 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Payment;
 use App\Enum\PaymentStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use App\Exception\ConflictHttpException;
 
 class PaymentFailProcessor implements ProcessorInterface
 {
@@ -22,7 +22,7 @@ class PaymentFailProcessor implements ProcessorInterface
         $payment = $data;
 
         if ($payment->getStatus() !== PaymentStatusEnum::PENDING) {
-            throw new UnprocessableEntityHttpException('Seul un paiement en attente peut être marqué comme échoué.');
+            throw new ConflictHttpException('Seul un paiement en attente peut être marqué comme échoué.');
         }
 
         $payment->setStatus(PaymentStatusEnum::FAILED);

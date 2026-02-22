@@ -90,7 +90,7 @@ class InstituteMembershipTest extends WebTestCase
             'role' => 'TEACHER',
         ]));
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     public function testGetMembershipsAsInstituteAdmin(): void

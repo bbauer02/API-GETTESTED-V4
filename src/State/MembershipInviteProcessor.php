@@ -11,7 +11,9 @@ use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class MembershipInviteProcessor implements ProcessorInterface
@@ -31,7 +33,7 @@ class MembershipInviteProcessor implements ProcessorInterface
         $institute = $this->entityManager->getRepository(Institute::class)->find($instituteId);
 
         if (!$institute) {
-            throw new UnprocessableEntityHttpException('Institut introuvable.');
+            throw new NotFoundHttpException('Institut introuvable.');
         }
 
         // Vérifier les droits : PLATFORM_ADMIN ou INSTITUTE_ADMIN
@@ -53,7 +55,7 @@ class MembershipInviteProcessor implements ProcessorInterface
         ]);
 
         if ($existingMembership !== null) {
-            throw new UnprocessableEntityHttpException('Cet utilisateur est déjà membre de cet institut.');
+            throw new ConflictHttpException('Cet utilisateur est déjà membre de cet institut.');
         }
 
         $membership->setInstitute($institute);

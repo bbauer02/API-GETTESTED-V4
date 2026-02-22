@@ -13,9 +13,9 @@ use App\Enum\PaymentStatusEnum;
 use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class PaymentCreateProcessor implements ProcessorInterface
 {
@@ -35,7 +35,7 @@ class PaymentCreateProcessor implements ProcessorInterface
         }
 
         if ($invoice->getStatus() !== InvoiceStatusEnum::ISSUED) {
-            throw new UnprocessableEntityHttpException('Les paiements ne peuvent être créés que pour une facture émise.');
+            throw new ConflictHttpException('Les paiements ne peuvent être créés que pour une facture émise.');
         }
 
         /** @var User $currentUser */

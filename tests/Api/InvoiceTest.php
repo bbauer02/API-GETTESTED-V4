@@ -412,7 +412,7 @@ class InvoiceTest extends WebTestCase
             'tvaRate' => 20.0,
         ]));
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================
@@ -439,7 +439,7 @@ class InvoiceTest extends WebTestCase
             'paymentMethod' => 'STRIPE',
         ]));
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================
@@ -463,7 +463,7 @@ class InvoiceTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ], '{}');
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================

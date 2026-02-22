@@ -12,9 +12,9 @@ use App\Enum\InvoiceStatusEnum;
 use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class InvoiceLineCreateProcessor implements ProcessorInterface
 {
@@ -34,7 +34,7 @@ class InvoiceLineCreateProcessor implements ProcessorInterface
         }
 
         if ($invoice->getStatus() !== InvoiceStatusEnum::DRAFT) {
-            throw new UnprocessableEntityHttpException('Impossible d\'ajouter une ligne à une facture qui n\'est pas en brouillon.');
+            throw new ConflictHttpException('Impossible d\'ajouter une ligne à une facture qui n\'est pas en brouillon.');
         }
 
         /** @var User $currentUser */

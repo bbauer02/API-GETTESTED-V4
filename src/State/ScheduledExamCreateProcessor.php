@@ -12,6 +12,7 @@ use App\Enum\PlatformRoleEnum;
 use App\Enum\SessionValidationEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -37,7 +38,7 @@ class ScheduledExamCreateProcessor implements ProcessorInterface
         }
 
         if (!in_array($session->getValidation(), [SessionValidationEnum::DRAFT, SessionValidationEnum::OPEN])) {
-            throw new UnprocessableEntityHttpException('Les examens planifiés ne peuvent être ajoutés qu\'aux sessions DRAFT ou OPEN.');
+            throw new ConflictHttpException('Les examens planifiés ne peuvent être ajoutés qu\'aux sessions DRAFT ou OPEN.');
         }
 
         /** @var User $currentUser */

@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Session;
 use App\Enum\SessionValidationEnum;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class SessionPatchProcessor implements ProcessorInterface
@@ -33,7 +34,7 @@ class SessionPatchProcessor implements ProcessorInterface
         match ($status) {
             SessionValidationEnum::DRAFT => null, // tout est modifiable
             SessionValidationEnum::OPEN => $this->validateOpenChanges($session, $previousData),
-            SessionValidationEnum::CLOSE, SessionValidationEnum::CANCELLED => throw new UnprocessableEntityHttpException(
+            SessionValidationEnum::CLOSE, SessionValidationEnum::CANCELLED => throw new ConflictHttpException(
                 'Une session en statut ' . $status->value . ' ne peut pas être modifiée.'
             ),
         };

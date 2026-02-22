@@ -13,7 +13,7 @@ use App\Enum\InvoiceStatusEnum;
 use App\Enum\InvoiceTypeEnum;
 use App\Enum\PaymentStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use App\Exception\ConflictHttpException;
 
 class PaymentRefundProcessor implements ProcessorInterface
 {
@@ -28,7 +28,7 @@ class PaymentRefundProcessor implements ProcessorInterface
         $payment = $data;
 
         if ($payment->getStatus() !== PaymentStatusEnum::COMPLETED) {
-            throw new UnprocessableEntityHttpException('Seul un paiement complété peut être remboursé.');
+            throw new ConflictHttpException('Seul un paiement complété peut être remboursé.');
         }
 
         $payment->setStatus(PaymentStatusEnum::REFUNDED);

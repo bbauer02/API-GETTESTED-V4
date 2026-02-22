@@ -8,7 +8,7 @@ use App\Entity\Payment;
 use App\Enum\InvoiceStatusEnum;
 use App\Enum\PaymentStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use App\Exception\ConflictHttpException;
 
 class PaymentCompleteProcessor implements ProcessorInterface
 {
@@ -23,7 +23,7 @@ class PaymentCompleteProcessor implements ProcessorInterface
         $payment = $data;
 
         if ($payment->getStatus() !== PaymentStatusEnum::PENDING) {
-            throw new UnprocessableEntityHttpException('Seul un paiement en attente peut être complété.');
+            throw new ConflictHttpException('Seul un paiement en attente peut être complété.');
         }
 
         $payment->setStatus(PaymentStatusEnum::COMPLETED);

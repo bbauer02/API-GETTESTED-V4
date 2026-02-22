@@ -12,6 +12,8 @@ use App\Enum\EnrollmentExamStatusEnum;
 use App\Enum\SessionValidationEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use App\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class SessionEnrollProcessor implements ProcessorInterface
@@ -28,12 +30,12 @@ class SessionEnrollProcessor implements ProcessorInterface
         $session = $this->entityManager->getRepository(Session::class)->find($sessionId);
 
         if (!$session) {
-            throw new UnprocessableEntityHttpException('Session introuvable.');
+            throw new NotFoundHttpException('Session introuvable.');
         }
 
         // 1. Vérifier session OPEN
         if ($session->getValidation() !== SessionValidationEnum::OPEN) {
-            throw new UnprocessableEntityHttpException('La session n\'est pas ouverte aux inscriptions.');
+            throw new ConflictHttpException('La session n\'est pas ouverte aux inscriptions.');
         }
 
         // 2. Vérifier places disponibles
@@ -42,7 +44,7 @@ class SessionEnrollProcessor implements ProcessorInterface
             $enrollmentCount = $this->entityManager->getRepository(EnrollmentSession::class)
                 ->count(['session' => $session]);
             if ($enrollmentCount >= $placesAvailable) {
-                throw new UnprocessableEntityHttpException('Plus de places disponibles pour cette session.');
+                throw new ConflictHttpException('Plus de places disponibles pour cette session.');
             }
         }
 
@@ -59,7 +61,7 @@ class SessionEnrollProcessor implements ProcessorInterface
         $existingEnrollment = $this->entityManager->getRepository(EnrollmentSession::class)
             ->findOneBy(['session' => $session, 'user' => $currentUser]);
         if ($existingEnrollment) {
-            throw new UnprocessableEntityHttpException('Vous êtes déjà inscrit à cette session.');
+            throw new ConflictHttpException('Vous êtes déjà inscrit à cette session.');
         }
 
         // 5. Créer l'EnrollmentSession

@@ -63,7 +63,7 @@ class EnrollmentTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ], '{}');
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     public function testEnrollAlreadyEnrolled(): void
@@ -84,7 +84,7 @@ class EnrollmentTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ], '{}');
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     public function testEnrollNoPlacesAvailable(): void
@@ -108,7 +108,7 @@ class EnrollmentTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ], '{}');
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     public function testEnrollDeadlinePassed(): void

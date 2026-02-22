@@ -7,7 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Session;
 use App\Enum\SessionValidationEnum;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use App\Exception\ConflictHttpException;
 
 class SessionSoftDeleteProcessor implements ProcessorInterface
 {
@@ -22,7 +22,7 @@ class SessionSoftDeleteProcessor implements ProcessorInterface
         $session = $data;
 
         if ($session->getValidation() !== SessionValidationEnum::DRAFT) {
-            throw new UnprocessableEntityHttpException('Seule une session en statut DRAFT peut être supprimée.');
+            throw new ConflictHttpException('Seule une session en statut DRAFT peut être supprimée.');
         }
 
         $session->setDeletedAt(new \DateTime());

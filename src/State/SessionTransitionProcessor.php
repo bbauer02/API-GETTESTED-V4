@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Session;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Workflow\WorkflowInterface;
 
@@ -28,7 +29,7 @@ class SessionTransitionProcessor implements ProcessorInterface
         }
 
         if (!$this->sessionLifecycleStateMachine->can($session, $transition)) {
-            throw new UnprocessableEntityHttpException(
+            throw new ConflictHttpException(
                 sprintf('La transition "%s" n\'est pas possible depuis le statut "%s".', $transition, $session->getValidation()->value)
             );
         }
