@@ -4,6 +4,9 @@ namespace App\Entity;
 
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use App\Filter\TextSearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
@@ -83,8 +86,12 @@ use Symfony\Component\Validator\Constraints as Assert;
 )]
 #[ApiFilter(SearchFilter::class, properties: [
     'businessType' => 'exact',
+    'invoiceType' => 'exact',
     'status' => 'exact',
 ])]
+#[ApiFilter(TextSearchFilter::class, properties: ['invoiceNumber' => null, 'buyer.name' => null, 'seller.name' => null])]
+#[ApiFilter(DateFilter::class, properties: ['invoiceDate'])]
+#[ApiFilter(OrderFilter::class, properties: ['invoiceDate', 'invoiceNumber', 'totalTTC', 'status'], arguments: ['orderParameterName' => 'order'])]
 class Invoice
 {
     #[ORM\Id]

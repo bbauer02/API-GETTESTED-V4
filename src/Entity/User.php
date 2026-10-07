@@ -5,6 +5,8 @@ namespace App\Entity;
 use ApiPlatform\Doctrine\Orm\Filter\BooleanFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
+use App\Filter\TextSearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
@@ -92,6 +94,8 @@ use Symfony\Component\Validator\Constraints as Assert;
     'platformRole' => 'exact',
 ])]
 #[ApiFilter(BooleanFilter::class, properties: ['isActive', 'isVerified'])]
+#[ApiFilter(TextSearchFilter::class, properties: ['firstname' => null, 'lastname' => null, 'email' => null])]
+#[ApiFilter(OrderFilter::class, properties: ['lastname', 'firstname', 'email', 'platformRole', 'createdAt'], arguments: ['orderParameterName' => 'order'])]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, ContactableInterface
 {
     #[ORM\Id]

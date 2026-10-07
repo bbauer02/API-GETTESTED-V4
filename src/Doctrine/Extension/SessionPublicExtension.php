@@ -28,8 +28,12 @@ class SessionPublicExtension implements QueryCollectionExtensionInterface
         }
 
         $rootAlias = $queryBuilder->getRootAliases()[0];
+        // Sessions ouvertes dont la date limite n'est pas passée (le verrouillage automatique
+        // n'intervient qu'à la lecture d'une session : sans ce filtre, elles resteraient listées)
         $queryBuilder
             ->andWhere(sprintf('%s.status = :open_status', $rootAlias))
-            ->setParameter('open_status', SessionStatusEnum::OPEN);
+            ->andWhere(sprintf('%1$s.limitDateSubscribe IS NULL OR %1$s.limitDateSubscribe > :public_now', $rootAlias))
+            ->setParameter('open_status', SessionStatusEnum::OPEN)
+            ->setParameter('public_now', new \DateTime());
     }
 }
