@@ -6,13 +6,16 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\EnrollmentExam;
 use App\Entity\EnrollmentSession;
+use App\Entity\ScheduledExam;
 use App\Entity\Session;
 use App\Entity\User;
 use App\Enum\EnrollmentExamStatusEnum;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
+use App\Service\InvoiceService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\Exception\ConflictHttpException;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -21,6 +24,8 @@ class SessionEnrollProcessor implements ProcessorInterface
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
+        private readonly InvoiceService $invoiceService,
+        private readonly RequestStack $requestStack,
     ) {
     }
 
@@ -34,7 +39,7 @@ class SessionEnrollProcessor implements ProcessorInterface
         }
 
         // 1. Vérifier session OPEN
-        if ($session->getValidation() !== SessionValidationEnum::OPEN) {
+        if ($session->getStatus() !== SessionStatusEnum::OPEN) {
             throw new ConflictHttpException('La session n\'est pas ouverte aux inscriptions.');
         }
 
@@ -64,26 +69,88 @@ class SessionEnrollProcessor implements ProcessorInterface
             throw new ConflictHttpException('Vous êtes déjà inscrit à cette session.');
         }
 
-        // 5. Créer l'EnrollmentSession
-        $enrollment = new EnrollmentSession();
-        $enrollment->setSession($session);
-        $enrollment->setUser($currentUser);
-        $enrollment->setRegistrationDate(new \DateTime());
-        $this->entityManager->persist($enrollment);
+        // 5. Épreuves retenues : toutes les obligatoires + les options cochées par le candidat
+        $selectedScheduledExams = $this->resolveSelectedScheduledExams($session);
 
-        // 6. Créer un EnrollmentExam pour chaque ScheduledExam
-        foreach ($session->getScheduledExams() as $scheduledExam) {
-            $enrollmentExam = new EnrollmentExam();
-            $enrollmentExam->setEnrollmentSession($enrollment);
-            $enrollmentExam->setScheduledExam($scheduledExam);
-            $enrollmentExam->setStatus(EnrollmentExamStatusEnum::REGISTERED);
-            $this->entityManager->persist($enrollmentExam);
-            $enrollment->getEnrollmentExams()->add($enrollmentExam);
+        // Transaction unique : enrollment + facture. Si quoi que ce soit plante, tout est annulé.
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+
+        try {
+            // 5. Créer l'EnrollmentSession
+            $enrollment = new EnrollmentSession();
+            $enrollment->setSession($session);
+            $enrollment->setUser($currentUser);
+            $enrollment->setRegistrationDate(new \DateTime());
+            $this->entityManager->persist($enrollment);
+
+            // 6. Créer un EnrollmentExam pour chaque épreuve retenue
+            foreach ($selectedScheduledExams as $scheduledExam) {
+                $enrollmentExam = new EnrollmentExam();
+                $enrollmentExam->setEnrollmentSession($enrollment);
+                $enrollmentExam->setScheduledExam($scheduledExam);
+                $enrollmentExam->setStatus(EnrollmentExamStatusEnum::REGISTERED);
+                $this->entityManager->persist($enrollmentExam);
+                $enrollment->getEnrollmentExams()->add($enrollmentExam);
+            }
+
+            // 7. Flush l'enrollment avant de créer la facture (dans la même transaction)
+            $this->entityManager->flush();
+
+            // 8. Créer et émettre la facture institut → candidat
+            $this->invoiceService->createEnrollmentInvoice($enrollment);
+
+            $conn->commit();
+        } catch (\Throwable $e) {
+            $conn->rollBack();
+            throw $e;
         }
 
-        // 7. Flush
-        $this->entityManager->flush();
+        // 9. Rafraîchir l'enrollment pour que la collection invoices soit à jour en mémoire
+        $this->entityManager->refresh($enrollment);
 
         return $enrollment;
+    }
+
+    /**
+     * Lit `scheduledExamIds` (UUID ou IRI) dans le corps de la requête.
+     * Les épreuves obligatoires sont toujours incluses ; une option n'est retenue que si elle est demandée.
+     *
+     * @return ScheduledExam[]
+     */
+    private function resolveSelectedScheduledExams(Session $session): array
+    {
+        try {
+            $payload = $this->requestStack->getCurrentRequest()?->toArray() ?? [];
+        } catch (\Symfony\Component\HttpFoundation\Exception\JsonException) {
+            $payload = [];
+        }
+        $requestedIds = array_map(
+            static fn ($id) => basename((string) $id),
+            (array) ($payload['scheduledExamIds'] ?? [])
+        );
+
+        $sessionExamIds = [];
+        $selected = [];
+        foreach ($session->getScheduledExams() as $scheduledExam) {
+            $id = (string) $scheduledExam->getId();
+            $sessionExamIds[] = $id;
+
+            $isOption = $scheduledExam->getExam()?->isOption() ?? false;
+            if (!$isOption || in_array($id, $requestedIds, true)) {
+                $selected[] = $scheduledExam;
+            }
+        }
+
+        $unknownIds = array_diff($requestedIds, $sessionExamIds);
+        if ($unknownIds) {
+            throw new UnprocessableEntityHttpException('Certaines épreuves demandées ne font pas partie de cette session.');
+        }
+
+        if (!$selected) {
+            throw new UnprocessableEntityHttpException('Aucune épreuve sélectionnée pour cette inscription.');
+        }
+
+        return $selected;
     }
 }

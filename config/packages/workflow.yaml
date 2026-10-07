@@ -6,28 +6,38 @@ framework:
                 enabled: true
             marking_store:
                 type: 'method'
-                property: 'validation'
+                property: 'status'
             supports:
                 - App\Entity\Session
             initial_marking: DRAFT
             places:
                 - DRAFT
                 - OPEN
-                - CLOSE
+                - LOCKED
+                - VALIDATED
                 - CANCELLED
             transitions:
                 open:
                     from: DRAFT
                     to: OPEN
-                close:
+                lock:
                     from: OPEN
-                    to: CLOSE
+                    to: LOCKED
+                validate:
+                    from: LOCKED
+                    to: VALIDATED
+                reopen_from_locked:
+                    from: LOCKED
+                    to: OPEN
                 cancel_from_draft:
                     from: DRAFT
                     to: CANCELLED
                 cancel_from_open:
                     from: OPEN
                     to: CANCELLED
-                cancel_from_close:
-                    from: CLOSE
+                cancel_from_locked:
+                    from: LOCKED
                     to: CANCELLED
+                reopen:
+                    from: CANCELLED
+                    to: DRAFT

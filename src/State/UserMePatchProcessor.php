@@ -42,8 +42,10 @@ class UserMePatchProcessor implements ProcessorInterface
             throw new BadRequestHttpException('Utilisateur non trouvé.');
         }
 
-        // Sauvegarder l'ancien email pour détecter un changement
+        // Sauvegarder l'ancien email / téléphone pour détecter un changement
         $previousEmail = $user->getEmail();
+        $previousPhone = $user->getPhone();
+        $previousPhoneCountryCode = $user->getPhoneCountryCode();
 
         // Deserialiser le body JSON dans l'entité existante (merge)
         $json = $context['request']->getContent();
@@ -51,6 +53,13 @@ class UserMePatchProcessor implements ProcessorInterface
             AbstractNormalizer::OBJECT_TO_POPULATE => $user,
             AbstractNormalizer::GROUPS => $operation->getDenormalizationContext()['groups'] ?? [],
         ]);
+
+        // Si le téléphone a changé → la vérification SMS est invalidée
+        if ($user->getPhone() !== $previousPhone || $user->getPhoneCountryCode() !== $previousPhoneCountryCode) {
+            $user->setPhoneVerifiedAt(null);
+            $user->setPhoneVerificationCode(null);
+            $user->setPhoneVerificationExpiresAt(null);
+        }
 
         // Si l'email a changé → re-vérification nécessaire
         if ($user->getEmail() !== $previousEmail) {

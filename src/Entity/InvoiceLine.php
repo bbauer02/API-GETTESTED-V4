@@ -18,6 +18,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: InvoiceLineRepository::class)]
 #[ApiResource(
+    shortName: 'invoice-lines',
     operations: [
         new Patch(
             security: "is_granted('INVOICE_LINE_EDIT', object)",

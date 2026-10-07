@@ -9,7 +9,7 @@ use App\Entity\Session;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -51,7 +51,7 @@ class InstituteSessionCreateProcessor implements ProcessorInterface
         }
 
         $session->setInstitute($institute);
-        $session->setValidation(SessionValidationEnum::DRAFT);
+        $session->setStatus(SessionStatusEnum::DRAFT);
 
         $this->entityManager->persist($session);
         $this->entityManager->flush();
@@ -67,7 +67,7 @@ class InstituteSessionCreateProcessor implements ProcessorInterface
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
-                && $membership->getRole() === InstituteRoleEnum::ADMIN
+                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF], true)
             ) {
                 return true;
             }

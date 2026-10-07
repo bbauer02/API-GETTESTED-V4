@@ -1,0 +1,4 @@
+framework:
+    notifier:
+        texter_transports:
+            main: '%env(TEXTER_DSN)%'

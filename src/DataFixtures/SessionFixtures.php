@@ -4,16 +4,13 @@ namespace App\DataFixtures;
 
 use App\Entity\Assessment;
 use App\Entity\Embeddable\Address;
-use App\Entity\EnrollmentExam;
-use App\Entity\EnrollmentSession;
 use App\Entity\Exam;
 use App\Entity\Institute;
 use App\Entity\Level;
 use App\Entity\ScheduledExam;
 use App\Entity\Session;
 use App\Entity\User;
-use App\Enum\EnrollmentExamStatusEnum;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
@@ -32,116 +29,234 @@ class SessionFixtures extends Fixture implements DependentFixtureInterface
 
     public function load(ObjectManager $manager): void
     {
-        /** @var Institute $institute */
-        $institute = $this->getReference('institute_1', Institute::class);
+        // Dates relatives (toujours dans le futur) : les sessions restent ouvertes aux inscriptions
+        $toeicLimit = (new \DateTime('+23 days'))->format('Y-m-d');
+        $toeicDay = (new \DateTime('+30 days'))->format('Y-m-d');
+        $jlptDay = (new \DateTime('+37 days'))->format('Y-m-d');
+        $customDay = (new \DateTime('+44 days'))->format('Y-m-d');
+        $draftLimit = (new \DateTime('+65 days'))->format('Y-m-d');
+        $draftDay = (new \DateTime('+72 days'))->format('Y-m-d');
+
+        // Références communes
+        /** @var Institute $institutFrancais */
+        $institutFrancais = $this->getReference('institute_1', Institute::class);
+        /** @var Institute $tenri */
+        $tenri = $this->getReference('institute_2', Institute::class);
         /** @var Assessment $toeic */
         $toeic = $this->getReference('assessment_toeic', Assessment::class);
-        /** @var Level $levelB2 */
-        $levelB2 = $this->getReference('level_B2', Level::class);
-        /** @var Exam $listening */
-        $listening = $this->getReference('exam_toeic_listening', Exam::class);
-        /** @var User $user1 */
-        $user1 = $this->getReference('user_user1', User::class);
-        /** @var User $user2 */
-        $user2 = $this->getReference('user_user2', User::class);
-        /** @var User $inactive */
-        $inactive = $this->getReference('user_inactive', User::class);
+        /** @var Assessment $jlpt */
+        $jlpt = $this->getReference('assessment_jlpt', Assessment::class);
+        /** @var Assessment $custom */
+        $custom = $this->getReference('assessment_custom', Assessment::class);
 
-        // Session TOEIC — Institut Français (OPEN)
-        $session = new Session();
-        $session->setInstitute($institute);
-        $session->setAssessment($toeic);
-        $session->setLevel($levelB2);
-        $session->setStart(new \DateTime('2026-03-01 09:00:00'));
-        $session->setEnd(new \DateTime('2026-03-01 17:00:00'));
-        $session->setLimitDateSubscribe(new \DateTime('2026-02-25 23:59:59'));
-        $session->setPlacesAvailable(30);
-        $session->setValidation(SessionValidationEnum::OPEN);
-        $manager->persist($session);
-        $this->addReference('session_toeic', $session);
+        // Users (examinateurs)
+        /** @var User $ayaka */
+        $ayaka = $this->getReference('user_user1', User::class);
+        /** @var User $didier */
+        $didier = $this->getReference('user_inactive', User::class);
 
-        // ScheduledExam — TOEIC Listening
-        $scheduledExam = new ScheduledExam();
-        $scheduledExam->setSession($session);
-        $scheduledExam->setExam($listening);
-        $scheduledExam->setStartDate(new \DateTime('2026-03-01 09:00:00'));
-        $scheduledExam->setRoom('Salle A');
+        // Exams
+        /** @var Exam $toeicListening */
+        $toeicListening = $this->getReference('exam_toeic_listening', Exam::class);
+        /** @var Exam $toeicReading */
+        $toeicReading = $this->getReference('exam_toeic_reading', Exam::class);
+        /** @var Exam $jlptVocabGrammar */
+        $jlptVocabGrammar = $this->getReference('exam_jlpt_vocab_grammar', Exam::class);
+        /** @var Exam $jlptReading */
+        $jlptReading = $this->getReference('exam_jlpt_reading', Exam::class);
+        /** @var Exam $jlptListening */
+        $jlptListening = $this->getReference('exam_jlpt_listening', Exam::class);
+        /** @var Exam $customWriting */
+        $customWriting = $this->getReference('exam_custom_writing', Exam::class);
+        /** @var Exam $customReading */
+        $customReading = $this->getReference('exam_custom_reading', Exam::class);
 
-        $address = new Address();
-        $address->setAddress1('15 rue de Tokyo');
-        $address->setCity('Paris');
-        $address->setZipcode('75001');
-        $address->setCountryCode('FR');
-        $scheduledExam->setAddress($address);
+        // ============================================================
+        // SESSION 1 — TOEIC à l'Institut Français, OPEN
+        // Date : samedi 5 avril 2026, inscriptions jusqu'au 28 mars
+        // ============================================================
+        $sessionToeic = new Session();
+        $sessionToeic->setInstitute($institutFrancais);
+        $sessionToeic->setAssessment($toeic);
+        $sessionToeic->setStart(new \DateTime($toeicDay . ' 09:00:00'));
+        $sessionToeic->setEnd(new \DateTime($toeicDay . ' 13:00:00'));
+        $sessionToeic->setLimitDateSubscribe(new \DateTime($toeicLimit . ' 23:59:59'));
+        $sessionToeic->setPlacesAvailable(25);
+        $sessionToeic->setStatus(SessionStatusEnum::OPEN);
+        $manager->persist($sessionToeic);
+        $this->addReference('session_toeic', $sessionToeic);
 
-        // Ajouter des examinateurs
-        $scheduledExam->addExaminator($user1); // Ayaka — ADMIN de l'institut
-        $scheduledExam->addExaminator($inactive); // Didier — TEACHER de Tenri (examinateur supplémentaire)
+        // ScheduledExam — TOEIC Listening (09h00-09h45)
+        $seToeicListening = $this->createScheduledExam(
+            $sessionToeic,
+            $toeicListening,
+            new \DateTime($toeicDay . ' 09:00:00'),
+            'Salle Molière',
+            '101 boulevard Raspail', 'Paris', '75006', 'FR'
+        );
+        $seToeicListening->addExaminator($ayaka);
+        $manager->persist($seToeicListening);
 
-        $manager->persist($scheduledExam);
-        $this->addReference('scheduled_exam_listening', $scheduledExam);
+        // ScheduledExam — TOEIC Reading (10h00-11h15)
+        $seToeicReading = $this->createScheduledExam(
+            $sessionToeic,
+            $toeicReading,
+            new \DateTime($toeicDay . ' 10:00:00'),
+            'Salle Molière',
+            '101 boulevard Raspail', 'Paris', '75006', 'FR'
+        );
+        $seToeicReading->addExaminator($ayaka);
+        $manager->persist($seToeicReading);
 
-        // EnrollmentSession — Christophe inscrit
-        $enrollment = new EnrollmentSession();
-        $enrollment->setSession($session);
-        $enrollment->setUser($user2);
-        $enrollment->setRegistrationDate(new \DateTime('2026-02-15 10:00:00'));
-        $manager->persist($enrollment);
-        $this->addReference('enrollment_christophe', $enrollment);
+        // ============================================================
+        // SESSION 2 — JLPT N3 chez Tenri, OPEN
+        // Date : dimanche 12 avril 2026, inscriptions jusqu'au 5 avril
+        // ============================================================
+        $sessionJlpt = new Session();
+        $sessionJlpt->setInstitute($tenri);
+        $sessionJlpt->setAssessment($jlpt);
+        $sessionJlpt->setLevel($this->getReference('level_N3', Level::class));
+        $sessionJlpt->setStart(new \DateTime($jlptDay . ' 13:00:00'));
+        $sessionJlpt->setEnd(new \DateTime($jlptDay . ' 17:30:00'));
+        $sessionJlpt->setLimitDateSubscribe(new \DateTime($toeicDay . ' 23:59:59'));
+        $sessionJlpt->setPlacesAvailable(40);
+        $sessionJlpt->setStatus(SessionStatusEnum::OPEN);
+        $manager->persist($sessionJlpt);
+        $this->addReference('session_jlpt', $sessionJlpt);
 
-        // EnrollmentExam pour Christophe — Listening
-        $enrollmentExam = new EnrollmentExam();
-        $enrollmentExam->setEnrollmentSession($enrollment);
-        $enrollmentExam->setScheduledExam($scheduledExam);
-        $enrollmentExam->setStatus(EnrollmentExamStatusEnum::REGISTERED);
-        $manager->persist($enrollmentExam);
-        $this->addReference('enrollment_exam_christophe_listening', $enrollmentExam);
+        // ScheduledExam — JLPT Vocabulaire & Grammaire (13h00-13h30)
+        $seJlptVocab = $this->createScheduledExam(
+            $sessionJlpt,
+            $jlptVocabGrammar,
+            new \DateTime($jlptDay . ' 13:00:00'),
+            'Salle Sakura',
+            '8-12 rue Bertin Poirée', 'Paris', '75001', 'FR'
+        );
+        $seJlptVocab->addExaminator($didier);
+        $manager->persist($seJlptVocab);
 
-        // EnrollmentSession — Didier inscrit (2e enrollment pour tests multi-users)
-        $enrollmentDidier = new EnrollmentSession();
-        $enrollmentDidier->setSession($session);
-        $enrollmentDidier->setUser($inactive);
-        $enrollmentDidier->setRegistrationDate(new \DateTime('2026-02-16 14:00:00'));
-        $manager->persist($enrollmentDidier);
-        $this->addReference('enrollment_didier', $enrollmentDidier);
+        // ScheduledExam — JLPT Compréhension écrite (13h45-14h55)
+        $seJlptReading = $this->createScheduledExam(
+            $sessionJlpt,
+            $jlptReading,
+            new \DateTime($jlptDay . ' 13:45:00'),
+            'Salle Sakura',
+            '8-12 rue Bertin Poirée', 'Paris', '75001', 'FR'
+        );
+        $seJlptReading->addExaminator($didier);
+        $manager->persist($seJlptReading);
 
-        // EnrollmentExam pour Didier — Listening
-        $enrollmentExamDidier = new EnrollmentExam();
-        $enrollmentExamDidier->setEnrollmentSession($enrollmentDidier);
-        $enrollmentExamDidier->setScheduledExam($scheduledExam);
-        $enrollmentExamDidier->setStatus(EnrollmentExamStatusEnum::REGISTERED);
-        $manager->persist($enrollmentExamDidier);
+        // ScheduledExam — JLPT Compréhension orale (15h15-15h55)
+        $seJlptListening = $this->createScheduledExam(
+            $sessionJlpt,
+            $jlptListening,
+            new \DateTime($jlptDay . ' 15:15:00'),
+            'Salle Fuji',
+            '8-12 rue Bertin Poirée', 'Paris', '75001', 'FR'
+        );
+        $seJlptListening->addExaminator($didier);
+        $manager->persist($seJlptListening);
 
-        // Session DRAFT — Institut Français (pour tester create/edit/delete/transition)
+        // ============================================================
+        // SESSION 3 — Test personnalisé Institut Français, OPEN
+        // Date : samedi 19 avril 2026, inscriptions jusqu'au 12 avril
+        // Niveau A1 — 2 épreuves (écriture obligatoire + lecture optionnelle)
+        // ============================================================
+        $sessionCustom = new Session();
+        $sessionCustom->setInstitute($institutFrancais);
+        $sessionCustom->setAssessment($custom);
+        $sessionCustom->setLevel($this->getReference('level_A1', Level::class));
+        $sessionCustom->setStart(new \DateTime($customDay . ' 14:00:00'));
+        $sessionCustom->setEnd(new \DateTime($customDay . ' 16:30:00'));
+        $sessionCustom->setLimitDateSubscribe(new \DateTime($jlptDay . ' 23:59:59'));
+        $sessionCustom->setPlacesAvailable(15);
+        $sessionCustom->setStatus(SessionStatusEnum::OPEN);
+        $manager->persist($sessionCustom);
+        $this->addReference('session_custom', $sessionCustom);
+
+        // ScheduledExam — Expression écrite (14h00-15h00)
+        $seCustomWriting = $this->createScheduledExam(
+            $sessionCustom,
+            $customWriting,
+            new \DateTime($customDay . ' 14:00:00'),
+            'Salle Victor Hugo',
+            '101 boulevard Raspail', 'Paris', '75006', 'FR'
+        );
+        $seCustomWriting->addExaminator($ayaka);
+        $manager->persist($seCustomWriting);
+
+        // ScheduledExam — Compréhension écrite (15h15-16h00)
+        $seCustomReading = $this->createScheduledExam(
+            $sessionCustom,
+            $customReading,
+            new \DateTime($customDay . ' 15:15:00'),
+            'Salle Victor Hugo',
+            '101 boulevard Raspail', 'Paris', '75006', 'FR'
+        );
+        $seCustomReading->addExaminator($ayaka);
+        $manager->persist($seCustomReading);
+
+        // ============================================================
+        // SESSION 4 — TOEIC à l'Institut Français, DRAFT
+        // Date : samedi 17 mai 2026 (session en préparation)
+        // ============================================================
         $sessionDraft = new Session();
-        $sessionDraft->setInstitute($institute);
+        $sessionDraft->setInstitute($institutFrancais);
         $sessionDraft->setAssessment($toeic);
-        $sessionDraft->setLevel($levelB2);
-        $sessionDraft->setStart(new \DateTime('2026-04-01 09:00:00'));
-        $sessionDraft->setEnd(new \DateTime('2026-04-01 17:00:00'));
-        $sessionDraft->setLimitDateSubscribe(new \DateTime('2026-03-25 23:59:59'));
-        $sessionDraft->setPlacesAvailable(20);
-        $sessionDraft->setValidation(SessionValidationEnum::DRAFT);
+        $sessionDraft->setStart(new \DateTime($draftDay . ' 09:00:00'));
+        $sessionDraft->setEnd(new \DateTime($draftDay . ' 13:00:00'));
+        $sessionDraft->setLimitDateSubscribe(new \DateTime($draftLimit . ' 23:59:59'));
+        $sessionDraft->setPlacesAvailable(30);
+        $sessionDraft->setStatus(SessionStatusEnum::DRAFT);
         $manager->persist($sessionDraft);
         $this->addReference('session_draft', $sessionDraft);
 
-        // ScheduledExam pour la session draft
-        $scheduledExamDraft = new ScheduledExam();
-        $scheduledExamDraft->setSession($sessionDraft);
-        $scheduledExamDraft->setExam($listening);
-        $scheduledExamDraft->setStartDate(new \DateTime('2026-04-01 09:00:00'));
-        $scheduledExamDraft->setRoom('Salle B');
+        // ScheduledExam pour la session draft — Listening
+        $seDraftListening = $this->createScheduledExam(
+            $sessionDraft,
+            $toeicListening,
+            new \DateTime($draftDay . ' 09:00:00'),
+            'Salle Molière',
+            '101 boulevard Raspail', 'Paris', '75006', 'FR'
+        );
+        $manager->persist($seDraftListening);
 
-        $addressDraft = new Address();
-        $addressDraft->setAddress1('15 rue de Tokyo');
-        $addressDraft->setCity('Paris');
-        $addressDraft->setZipcode('75001');
-        $addressDraft->setCountryCode('FR');
-        $scheduledExamDraft->setAddress($addressDraft);
-
-        $manager->persist($scheduledExamDraft);
-        $this->addReference('scheduled_exam_draft', $scheduledExamDraft);
+        // ScheduledExam pour la session draft — Reading
+        $seDraftReading = $this->createScheduledExam(
+            $sessionDraft,
+            $toeicReading,
+            new \DateTime($draftDay . ' 10:00:00'),
+            'Salle Molière',
+            '101 boulevard Raspail', 'Paris', '75006', 'FR'
+        );
+        $manager->persist($seDraftReading);
 
         $manager->flush();
+    }
+
+    private function createScheduledExam(
+        Session $session,
+        Exam $exam,
+        \DateTime $startDate,
+        string $room,
+        string $address1,
+        string $city,
+        string $zipcode,
+        string $countryCode,
+    ): ScheduledExam {
+        $scheduledExam = new ScheduledExam();
+        $scheduledExam->setSession($session);
+        $scheduledExam->setExam($exam);
+        $scheduledExam->setStartDate($startDate);
+        $scheduledExam->setRoom($room);
+
+        $address = new Address();
+        $address->setAddress1($address1);
+        $address->setCity($city);
+        $address->setZipcode($zipcode);
+        $address->setCountryCode($countryCode);
+        $scheduledExam->setAddress($address);
+
+        return $scheduledExam;
     }
 }

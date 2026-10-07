@@ -71,9 +71,24 @@ class SessionVoter extends Voter
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
+                && $membership->isActive()
                 && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF])
             ) {
                 return true;
+            }
+        }
+
+        // Un examinateur voit les sessions dont il évalue au moins une épreuve
+        return self::isExaminatorOf($user, $session);
+    }
+
+    public static function isExaminatorOf(User $user, Session $session): bool
+    {
+        foreach ($session->getScheduledExams() as $scheduledExam) {
+            foreach ($scheduledExam->getExaminators() as $examinator) {
+                if ($examinator->getId()?->equals($user->getId())) {
+                    return true;
+                }
             }
         }
 
@@ -96,7 +111,8 @@ class SessionVoter extends Voter
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
-                && $membership->getRole() === InstituteRoleEnum::ADMIN
+                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF], true)
+                && $membership->isActive()
             ) {
                 return true;
             }

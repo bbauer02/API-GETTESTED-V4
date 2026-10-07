@@ -43,7 +43,7 @@ class InvoiceTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ], json_encode([
             'businessType' => 'ENROLLMENT',
-            'enrollmentSession' => '/api/enrollment_sessions/' . $enrollment->getId(),
+            'enrollmentSession' => '/api/enrollment-sessions/' . $enrollment->getId(),
         ]));
 
         $this->assertResponseStatusCodeSame(Response::HTTP_CREATED);

@@ -15,6 +15,7 @@ use App\Entity\Invoice;
 use App\Interface\ContactableInterface;
 use App\Repository\InstituteRepository;
 use App\State\InstituteCreateProcessor;
+use App\State\InstituteDeleteProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -44,6 +45,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
         new Delete(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            processor: InstituteDeleteProcessor::class,
         ),
     ],
     paginationItemsPerPage: 30,
@@ -57,14 +59,20 @@ class Institute implements ContactableInterface
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['institute:read', 'session:read'])]
+    #[Groups(['institute:read', 'session:read', 'user:read:self', 'assessment:read', 'enrollment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['institute:read', 'institute:write', 'session:read'])]
+    #[Groups(['institute:read', 'institute:write', 'session:read', 'assessment:read', 'user:read:self', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    #[Groups(['institute:read', 'institute:write', 'session:read'])]
+    #[Assert\Email]
+    #[Assert\Length(max: 180)]
+    private ?string $email = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['institute:read', 'institute:write'])]
@@ -76,7 +84,7 @@ class Institute implements ContactableInterface
     private ?array $socialNetworks = null;
 
     #[ORM\Embedded(class: Address::class, columnPrefix: 'address_')]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:write', 'session:read', 'enrollment:read'])]
     private Address $address;
 
     #[ORM\Column(length: 50, nullable: true)]
@@ -85,12 +93,12 @@ class Institute implements ContactableInterface
     private ?string $vatNumber = null;
 
     #[ORM\Column(length: 9, nullable: true)]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:write', 'session:read'])]
     #[Assert\Length(max: 9)]
     private ?string $siren = null;
 
     #[ORM\Column(length: 14, nullable: true)]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:write', 'session:read'])]
     #[Assert\Length(max: 14)]
     private ?string $siret = null;
 
@@ -108,6 +116,18 @@ class Institute implements ContactableInterface
     #[Groups(['institute:read', 'institute:write'])]
     #[Assert\Length(max: 100)]
     private ?string $rcsCity = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['institute:read', 'session:read', 'enrollment:read'])]
+    private ?string $logo = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['institute:read'])]
+    private ?string $coverImage = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    #[Groups(['institute:read', 'institute:write'])]
+    private ?int $coverPositionY = 50;
 
     #[ORM\OneToOne(mappedBy: 'institute', targetEntity: StripeAccount::class, cascade: ['persist', 'remove'])]
     #[Groups(['institute:read'])]
@@ -133,6 +153,14 @@ class Institute implements ContactableInterface
     #[ORM\OneToMany(targetEntity: Invoice::class, mappedBy: 'institute', cascade: ['remove'])]
     private Collection $invoices;
 
+    /** @var Collection<int, DocumentTemplate> */
+    #[ORM\OneToMany(targetEntity: DocumentTemplate::class, mappedBy: 'institute', cascade: ['remove'])]
+    private Collection $documentTemplates;
+
+    /** @var Collection<int, ExamCenter> */
+    #[ORM\OneToMany(targetEntity: ExamCenter::class, mappedBy: 'institute', cascade: ['remove'])]
+    private Collection $examCenters;
+
     public function __construct()
     {
         $this->address = new Address();
@@ -141,6 +169,8 @@ class Institute implements ContactableInterface
         $this->sessions = new ArrayCollection();
         $this->examPricings = new ArrayCollection();
         $this->invoices = new ArrayCollection();
+        $this->documentTemplates = new ArrayCollection();
+        $this->examCenters = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -156,6 +186,17 @@ class Institute implements ContactableInterface
     public function setLabel(string $label): static
     {
         $this->label = $label;
+        return $this;
+    }
+
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): static
+    {
+        $this->email = $email;
         return $this;
     }
 
@@ -266,6 +307,18 @@ class Institute implements ContactableInterface
         return $this->invoices;
     }
 
+    /** @return Collection<int, DocumentTemplate> */
+    /** @return Collection<int, ExamCenter> */
+    public function getExamCenters(): Collection
+    {
+        return $this->examCenters;
+    }
+
+    public function getDocumentTemplates(): Collection
+    {
+        return $this->documentTemplates;
+    }
+
     public function getSiren(): ?string
     {
         return $this->siren;
@@ -318,6 +371,39 @@ class Institute implements ContactableInterface
     public function setRcsCity(?string $rcsCity): static
     {
         $this->rcsCity = $rcsCity;
+        return $this;
+    }
+
+    public function getLogo(): ?string
+    {
+        return $this->logo;
+    }
+
+    public function setLogo(?string $logo): static
+    {
+        $this->logo = $logo;
+        return $this;
+    }
+
+    public function getCoverImage(): ?string
+    {
+        return $this->coverImage;
+    }
+
+    public function setCoverImage(?string $coverImage): static
+    {
+        $this->coverImage = $coverImage;
+        return $this;
+    }
+
+    public function getCoverPositionY(): ?int
+    {
+        return $this->coverPositionY;
+    }
+
+    public function setCoverPositionY(?int $coverPositionY): static
+    {
+        $this->coverPositionY = $coverPositionY;
         return $this;
     }
 

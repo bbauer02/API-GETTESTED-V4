@@ -14,6 +14,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\AssessmentRepository;
 use App\State\InstituteAssessmentCreateProcessor;
+use App\State\InstituteAssessmentProvider;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -49,6 +50,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     uriTemplate: '/institutes/{instituteId}/assessments',
     operations: [
+        new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: InstituteAssessmentProvider::class,
+            normalizationContext: ['groups' => ['assessment:read']],
+        ),
         new Post(
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             read: false,
@@ -75,11 +81,11 @@ class Assessment
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['assessment:read', 'session:read'])]
+    #[Groups(['assessment:read', 'session:read', 'enrollment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['assessment:read', 'assessment:write', 'session:read'])]
+    #[Groups(['assessment:read', 'assessment:write', 'session:read', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
@@ -122,7 +128,12 @@ class Assessment
 
     /** @var Collection<int, AssessmentOwnership> */
     #[ORM\OneToMany(targetEntity: AssessmentOwnership::class, mappedBy: 'assessment')]
+    #[Groups(['assessment:read'])]
     private Collection $ownerships;
+
+    /** @var Collection<int, Question> */
+    #[ORM\OneToMany(targetEntity: Question::class, mappedBy: 'assessment')]
+    private Collection $questions;
 
     public function __construct()
     {
@@ -131,6 +142,7 @@ class Assessment
         $this->skills = new ArrayCollection();
         $this->exams = new ArrayCollection();
         $this->ownerships = new ArrayCollection();
+        $this->questions = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -236,8 +248,15 @@ class Assessment
     }
 
     /** @return Collection<int, AssessmentOwnership> */
+    #[Groups(['assessment:read'])]
     public function getOwnerships(): Collection
     {
         return $this->ownerships;
+    }
+
+    /** @return Collection<int, Question> */
+    public function getQuestions(): Collection
+    {
+        return $this->questions;
     }
 }

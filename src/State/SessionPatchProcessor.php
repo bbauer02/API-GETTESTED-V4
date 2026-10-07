@@ -5,7 +5,7 @@ namespace App\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Session;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -29,12 +29,12 @@ class SessionPatchProcessor implements ProcessorInterface
             throw new UnprocessableEntityHttpException('Impossible de déterminer l\'état précédent de la session.');
         }
 
-        $status = $previousData->getValidation();
+        $status = $previousData->getStatus();
 
         match ($status) {
-            SessionValidationEnum::DRAFT => null, // tout est modifiable
-            SessionValidationEnum::OPEN => $this->validateOpenChanges($session, $previousData),
-            SessionValidationEnum::CLOSE, SessionValidationEnum::CANCELLED => throw new ConflictHttpException(
+            SessionStatusEnum::DRAFT => null, // tout est modifiable
+            SessionStatusEnum::OPEN => $this->validateOpenChanges($session, $previousData),
+            SessionStatusEnum::LOCKED, SessionStatusEnum::VALIDATED, SessionStatusEnum::CANCELLED => throw new ConflictHttpException(
                 'Une session en statut ' . $status->value . ' ne peut pas être modifiée.'
             ),
         };

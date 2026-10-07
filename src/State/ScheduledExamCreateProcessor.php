@@ -4,12 +4,13 @@ namespace App\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use App\Entity\Embeddable\Address;
 use App\Entity\ScheduledExam;
 use App\Entity\Session;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\Exception\ConflictHttpException;
@@ -37,7 +38,7 @@ class ScheduledExamCreateProcessor implements ProcessorInterface
             throw new NotFoundHttpException('Session introuvable.');
         }
 
-        if (!in_array($session->getValidation(), [SessionValidationEnum::DRAFT, SessionValidationEnum::OPEN])) {
+        if (!in_array($session->getStatus(), [SessionStatusEnum::DRAFT, SessionStatusEnum::OPEN])) {
             throw new ConflictHttpException('Les examens planifiés ne peuvent être ajoutés qu\'aux sessions DRAFT ou OPEN.');
         }
 
@@ -62,10 +63,42 @@ class ScheduledExamCreateProcessor implements ProcessorInterface
 
         $scheduledExam->setSession($session);
 
+        // Centre d'examen : doit appartenir au même institut ; copie adresse + salle
+        $examCenter = $scheduledExam->getExamCenter();
+        if ($examCenter) {
+            if (!$examCenter->getInstitute()?->getId()?->equals($session->getInstitute()?->getId())) {
+                throw new UnprocessableEntityHttpException("Le centre d'examen doit appartenir à l'institut de la session.");
+            }
+            $scheduledExam->setAddress(self::copyAddress($examCenter->getAddress()));
+            if (!$scheduledExam->getRoom()) {
+                $scheduledExam->setRoom($examCenter->getLabel());
+            }
+        } elseif (self::isAddressEmpty($scheduledExam->getAddress()) && $session->getInstitute()) {
+            $scheduledExam->setAddress(self::copyAddress($session->getInstitute()->getAddress()));
+        }
+
         $this->entityManager->persist($scheduledExam);
         $this->entityManager->flush();
 
         return $scheduledExam;
+    }
+
+    public static function isAddressEmpty(Address $address): bool
+    {
+        return !$address->getAddress1() && !$address->getAddress2() && !$address->getZipcode()
+            && !$address->getCity() && !$address->getCountryCode();
+    }
+
+    public static function copyAddress(Address $source): Address
+    {
+        $copy = new Address();
+        $copy->setAddress1($source->getAddress1());
+        $copy->setAddress2($source->getAddress2());
+        $copy->setZipcode($source->getZipcode());
+        $copy->setCity($source->getCity());
+        $copy->setCountryCode($source->getCountryCode());
+
+        return $copy;
     }
 
     private function canCreateScheduledExam(User $user, Session $session): bool
@@ -81,7 +114,8 @@ class ScheduledExamCreateProcessor implements ProcessorInterface
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
-                && $membership->getRole() === InstituteRoleEnum::ADMIN
+                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF], true)
+                && $membership->isActive()
             ) {
                 return true;
             }

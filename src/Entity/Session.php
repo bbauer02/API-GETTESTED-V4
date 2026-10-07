@@ -11,12 +11,13 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use App\Repository\SessionRepository;
 use App\State\InstituteSessionCreateProcessor;
 use App\State\InstituteSessionProvider;
 use App\State\SessionEnrollmentProvider;
 use App\State\SessionEnrollProcessor;
+use App\State\SessionItemProvider;
 use App\State\SessionPatchProcessor;
 use App\State\SessionSoftDeleteProcessor;
 use App\State\SessionTransitionProcessor;
@@ -36,6 +37,7 @@ use Symfony\Component\Validator\Constraints as Assert;
             normalizationContext: ['groups' => ['session:read']],
         ),
         new Get(
+            provider: SessionItemProvider::class,
             normalizationContext: ['groups' => ['session:read']],
         ),
         new Patch(
@@ -89,7 +91,7 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             read: false,
             processor: SessionEnrollProcessor::class,
-            normalizationContext: ['groups' => ['enrollment:read']],
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
             output: EnrollmentSession::class,
             validate: false,
             name: 'session_enroll',
@@ -105,7 +107,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         new GetCollection(
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             provider: SessionEnrollmentProvider::class,
-            normalizationContext: ['groups' => ['enrollment:read']],
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
         ),
     ],
     uriVariables: [
@@ -113,7 +115,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     ],
 )]
 #[ApiFilter(SearchFilter::class, properties: [
-    'validation' => 'exact',
+    'status' => 'exact',
 ])]
 class Session
 {
@@ -121,50 +123,50 @@ class Session
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['session:read'])]
+    #[Groups(['session:read', 'enrollment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(name: '`start`', type: Types::DATETIME_MUTABLE)]
-    #[Groups(['session:read', 'session:write', 'session:update'])]
+    #[Groups(['session:read', 'session:write', 'session:update', 'enrollment:read'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $start = null;
 
     #[ORM\Column(name: '`end`', type: Types::DATETIME_MUTABLE)]
-    #[Groups(['session:read', 'session:write', 'session:update'])]
+    #[Groups(['session:read', 'session:write', 'session:update', 'enrollment:read'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $end = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    #[Groups(['session:read', 'session:write', 'session:update'])]
+    #[Groups(['session:read', 'session:write', 'session:update', 'session:transition', 'enrollment:read'])]
     private ?\DateTimeInterface $limitDateSubscribe = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['session:read', 'session:write', 'session:update'])]
+    #[Groups(['session:read', 'session:write', 'session:update', 'enrollment:read'])]
     private ?int $placesAvailable = null;
 
-    #[ORM\Column(enumType: SessionValidationEnum::class)]
-    #[Groups(['session:read'])]
-    private SessionValidationEnum $validation = SessionValidationEnum::DRAFT;
+    #[ORM\Column(enumType: SessionStatusEnum::class)]
+    #[Groups(['session:read', 'enrollment:read'])]
+    private SessionStatusEnum $status = SessionStatusEnum::DRAFT;
 
     #[ORM\ManyToOne(targetEntity: Assessment::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read', 'session:write', 'enrollment:read'])]
     #[Assert\NotNull]
     private ?Assessment $assessment = null;
 
     #[ORM\ManyToOne(targetEntity: Level::class)]
     #[ORM\JoinColumn(nullable: true)]
-    #[Groups(['session:read', 'session:write'])]
+    #[Groups(['session:read', 'session:write', 'enrollment:read'])]
     private ?Level $level = null;
 
     #[ORM\ManyToOne(targetEntity: Institute::class, inversedBy: 'sessions')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['session:read'])]
+    #[Groups(['session:read', 'enrollment:read'])]
     private ?Institute $institute = null;
 
     /** @var Collection<int, ScheduledExam> */
     #[ORM\OneToMany(targetEntity: ScheduledExam::class, mappedBy: 'session')]
-    #[Groups(['session:read'])]
+    #[Groups(['session:read', 'enrollment:read'])]
     private Collection $scheduledExams;
 
     /** @var Collection<int, EnrollmentSession> */
@@ -172,16 +174,31 @@ class Session
     #[Groups(['session:read'])]
     private Collection $enrollments;
 
+    /** @var Collection<int, SessionDocumentPublication> */
+    #[ORM\OneToMany(targetEntity: SessionDocumentPublication::class, mappedBy: 'session', cascade: ['remove'])]
+    #[Groups(['session:read', 'enrollment:read'])]
+    private Collection $documentPublications;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $deletedAt = null;
 
+    /** Date du verrouillage automatique (date limite d'inscription dépassée), null si verrouillage manuel. */
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['session:read'])]
+    private ?\DateTimeInterface $lockedAutomaticallyAt = null;
+
     #[Groups(['session:transition'])]
     private ?string $transition = null;
+
+    /** Erreurs de remboursement Stripe remontées lors d'une annulation (non persisté). */
+    #[Groups(['session:read'])]
+    private ?array $refundErrors = null;
 
     public function __construct()
     {
         $this->scheduledExams = new ArrayCollection();
         $this->enrollments = new ArrayCollection();
+        $this->documentPublications = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -233,14 +250,14 @@ class Session
         return $this;
     }
 
-    public function getValidation(): SessionValidationEnum
+    public function getStatus(): SessionStatusEnum
     {
-        return $this->validation;
+        return $this->status;
     }
 
-    public function setValidation(SessionValidationEnum $validation): static
+    public function setStatus(SessionStatusEnum $status): static
     {
-        $this->validation = $validation;
+        $this->status = $status;
         return $this;
     }
 
@@ -300,6 +317,34 @@ class Session
         return $this;
     }
 
+    public function getLockedAutomaticallyAt(): ?\DateTimeInterface
+    {
+        return $this->lockedAutomaticallyAt;
+    }
+
+    public function setLockedAutomaticallyAt(?\DateTimeInterface $lockedAutomaticallyAt): static
+    {
+        $this->lockedAutomaticallyAt = $lockedAutomaticallyAt;
+        return $this;
+    }
+
+    #[Groups(['session:read'])]
+    public function isAutoLocked(): bool
+    {
+        return $this->lockedAutomaticallyAt !== null && $this->status === SessionStatusEnum::LOCKED;
+    }
+
+    public function getRefundErrors(): ?array
+    {
+        return $this->refundErrors;
+    }
+
+    public function setRefundErrors(?array $refundErrors): static
+    {
+        $this->refundErrors = $refundErrors;
+        return $this;
+    }
+
     public function getTransition(): ?string
     {
         return $this->transition;
@@ -309,5 +354,11 @@ class Session
     {
         $this->transition = $transition;
         return $this;
+    }
+
+    /** @return Collection<int, SessionDocumentPublication> */
+    public function getDocumentPublications(): Collection
+    {
+        return $this->documentPublications;
     }
 }

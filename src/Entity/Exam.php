@@ -15,6 +15,7 @@ use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Price;
 use App\Repository\ExamRepository;
 use App\State\AssessmentExamCreateProcessor;
+use App\Validator\ExamLevelBelongsToAssessment;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -73,17 +74,18 @@ use Symfony\Component\Validator\Constraints as Assert;
     'label' => 'partial',
 ])]
 #[ApiFilter(BooleanFilter::class, properties: ['isWritten', 'isOption'])]
+#[ExamLevelBelongsToAssessment(groups: ['Default', 'exam:create_sub'])]
 class Exam
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['exam:read', 'session:read'])]
+    #[Groups(['exam:read', 'session:read', 'enrollment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['exam:read', 'exam:write', 'session:read'])]
+    #[Groups(['exam:read', 'exam:write', 'session:read', 'enrollment:read'])]
     #[Assert\NotBlank(groups: ['Default', 'exam:create_sub'])]
     #[Assert\Length(max: 255, groups: ['Default', 'exam:create_sub'])]
     private ?string $label = null;
@@ -97,19 +99,19 @@ class Exam
     private bool $isOption = false;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['exam:read', 'exam:write'])]
+    #[Groups(['exam:read', 'exam:write', 'session:read'])]
     private ?int $coeff = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['exam:read', 'exam:write'])]
+    #[Groups(['exam:read', 'exam:write', 'session:read', 'enrollment:read'])]
     private ?int $nbrQuestions = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['exam:read', 'exam:write'])]
+    #[Groups(['exam:read', 'exam:write', 'session:read', 'enrollment:read'])]
     private ?int $duration = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['exam:read', 'exam:write'])]
+    #[Groups(['exam:read', 'exam:write', 'session:read'])]
     private ?int $successScore = null;
 
     #[ORM\ManyToOne(targetEntity: Assessment::class, inversedBy: 'exams')]

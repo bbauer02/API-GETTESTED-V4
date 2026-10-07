@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Invitation à rejoindre {{ institute.label }}</title>
+</head>
+<body>
+    <h1>Bonjour {{ user.firstname }},</h1>
+    <p>{{ inviter.firstname }} {{ inviter.lastname }} vous invite à rejoindre l'équipe de <strong>{{ institute.label }}</strong> sur GETTESTED.</p>
+    <p>Pour activer votre compte, définissez votre mot de passe en cliquant sur le lien ci-dessous :</p>
+    <p>
+        <a href="{{ link }}">Définir mon mot de passe</a>
+    </p>
+    <p>Ou copiez ce lien dans votre navigateur :<br>{{ link }}</p>
+    <p>Ce lien expire dans 7 jours.</p>
+    <p>Si vous n'attendiez pas cette invitation, ignorez cet email.</p>
+    <p>Cordialement,<br>L'équipe GETTESTED</p>
+</body>
+</html>

@@ -2,10 +2,11 @@
 
 namespace App\Enum;
 
-enum SessionValidationEnum: string
+enum SessionStatusEnum: string
 {
     case DRAFT     = 'DRAFT';
     case OPEN      = 'OPEN';
-    case CLOSE     = 'CLOSE';
+    case LOCKED    = 'LOCKED';
+    case VALIDATED = 'VALIDATED';
     case CANCELLED = 'CANCELLED';
 }

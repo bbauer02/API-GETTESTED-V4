@@ -8,6 +8,7 @@ use App\Entity\Institute;
 use App\Entity\InstituteMembership;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
+use App\Enum\MembershipStatusEnum;
 use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -60,6 +61,7 @@ class MembershipInviteProcessor implements ProcessorInterface
 
         $membership->setInstitute($institute);
         $membership->setSince(new \DateTime());
+        $membership->setStatus($targetUser->isActive() ? MembershipStatusEnum::ACTIVE : MembershipStatusEnum::PENDING);
 
         $this->entityManager->persist($membership);
         $this->entityManager->flush();
@@ -76,6 +78,7 @@ class MembershipInviteProcessor implements ProcessorInterface
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
                 && $membership->getRole() === InstituteRoleEnum::ADMIN
+                && $membership->isActive()
             ) {
                 return true;
             }

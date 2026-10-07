@@ -7,7 +7,7 @@ use App\DataFixtures\UserFixtures;
 use App\Entity\Exam;
 use App\Entity\Institute;
 use App\Entity\Session;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +34,7 @@ class SessionTest extends WebTestCase
 
         // Seules les sessions OPEN sont visibles publiquement
         foreach ($data as $session) {
-            $this->assertEquals('OPEN', $session['validation']);
+            $this->assertEquals('OPEN', $session['status']);
         }
         $this->assertNotEmpty($data);
     }
@@ -46,7 +46,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_ACCEPT' => 'application/json',
@@ -58,11 +58,17 @@ class SessionTest extends WebTestCase
         $this->assertArrayHasKey('scheduledExams', $data);
         $this->assertNotEmpty($data['scheduledExams']);
 
-        $scheduled = $data['scheduledExams'][0];
+        $scheduled = null;
+        foreach ($data['scheduledExams'] as $candidate) {
+            if (($candidate['exam']['label'] ?? null) === 'TOEIC Listening') {
+                $scheduled = $candidate;
+            }
+        }
+        $this->assertNotNull($scheduled);
         $this->assertArrayHasKey('id', $scheduled);
         $this->assertArrayHasKey('startDate', $scheduled);
         $this->assertArrayHasKey('room', $scheduled);
-        $this->assertEquals('Salle A', $scheduled['room']);
+        $this->assertEquals('Salle Molière', $scheduled['room']);
 
         $this->assertArrayHasKey('exam', $scheduled);
         $this->assertIsArray($scheduled['exam']);
@@ -73,20 +79,47 @@ class SessionTest extends WebTestCase
         $this->assertArrayHasKey('address', $scheduled);
         $this->assertIsArray($scheduled['address']);
         $this->assertArrayHasKey('address1', $scheduled['address']);
-        $this->assertEquals('15 rue de Tokyo', $scheduled['address']['address1']);
+        $this->assertEquals('101 boulevard Raspail', $scheduled['address']['address1']);
     }
 
-    public function testGetSessionContainsEnrollments(): void
+    public function testGetSessionHidesEnrollmentsFromPublic(): void
     {
         $client = static::createClient();
         $this->loadFixtures();
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $data = json_decode($client->getResponse()->getContent(), true);
+
+        // Données personnelles des inscrits jamais exposées publiquement
+        $this->assertArrayNotHasKey('enrollments', $data);
+        $this->assertArrayHasKey('enrollmentsCount', $data);
+        $this->assertGreaterThan(0, $data['enrollmentsCount']);
+        $this->assertArrayHasKey('placesRemaining', $data);
+        $this->assertFalse($data['isEnrolledByMe']);
+    }
+
+    public function testGetSessionContainsEnrollmentsForInstituteAdmin(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
+
+        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
         ]);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
@@ -116,7 +149,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_ACCEPT' => 'application/json',
@@ -136,7 +169,7 @@ class SessionTest extends WebTestCase
 
         $price = $scheduled['examPricing']['price'];
         $this->assertIsArray($price);
-        $this->assertEquals(65.0, $price['amount']);
+        $this->assertEquals(70.0, $price['amount']);
         $this->assertEquals('EUR', $price['currency']);
         $this->assertEquals(20.0, $price['tva']);
     }
@@ -148,7 +181,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_ACCEPT' => 'application/json',
@@ -199,7 +232,7 @@ class SessionTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(Response::HTTP_CREATED);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertEquals('DRAFT', $data['validation']);
+        $this->assertEquals('DRAFT', $data['status']);
         $this->assertEquals(25, $data['placesAvailable']);
     }
 
@@ -270,7 +303,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -295,7 +328,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -317,7 +350,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -345,7 +378,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         $client->request('DELETE', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -364,7 +397,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('DELETE', '/api/sessions/' . $session->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -387,7 +420,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -399,7 +432,7 @@ class SessionTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertEquals('OPEN', $data['validation']);
+        $this->assertEquals('OPEN', $data['status']);
     }
 
     public function testTransitionInvalidFails(): void
@@ -411,7 +444,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -436,7 +469,7 @@ class SessionTest extends WebTestCase
         $user2 = $em->getRepository(\App\Entity\User::class)->findOneBy(['email' => UserFixtures::USER2_EMAIL]);
         $client->loginUser($user2);
 
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
             'CONTENT_TYPE' => 'application/merge-patch+json',
@@ -448,7 +481,7 @@ class SessionTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
-    public function testTransitionOpenToClose(): void
+    public function testTransitionOpenToLock(): void
     {
         $client = static::createClient();
         $this->loadFixtures();
@@ -457,19 +490,161 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/json',
         ], json_encode([
-            'transition' => 'close',
+            'transition' => 'lock',
         ]));
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertEquals('CLOSE', $data['validation']);
+        $this->assertEquals('LOCKED', $data['status']);
+        // Verrouillage manuel → pas automatique
+        $this->assertFalse($data['autoLocked']);
+    }
+
+    private function transition($client, string $token, Session $session, array $payload): array
+    {
+        $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], json_encode($payload));
+
+        return json_decode($client->getResponse()->getContent(), true) ?? [];
+    }
+
+    public function testReopenFromLockedRequiresNewFutureLimitDate(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
+        $session->setStatus(SessionStatusEnum::LOCKED);
+        $session->setLockedAutomaticallyAt(new \DateTime());
+        $em->flush();
+
+        // Sans nouvelle date limite : refus explicite
+        $data = $this->transition($client, $token, $session, ['transition' => 'reopen_from_locked']);
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertStringContainsString('date limite', $data['detail']);
+
+        // Avec une date limite future, avant le début de la session
+        $newLimit = (clone $session->getStart())->modify('-1 day');
+        $data = $this->transition($client, $token, $session, [
+            'transition' => 'reopen_from_locked',
+            'limitDateSubscribe' => $newLimit->format(\DateTimeInterface::ATOM),
+        ]);
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $this->assertEquals('OPEN', $data['status']);
+        $this->assertFalse($data['autoLocked']);
+    }
+
+    public function testValidateRefusedBeforeLastExam(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
+        $session->setStatus(SessionStatusEnum::LOCKED);
+        $em->flush();
+
+        $data = $this->transition($client, $token, $session, ['transition' => 'validate']);
+
+        // La raison de la garde est remontée, pas un message générique
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->assertStringContainsString('dernière épreuve', $data['detail']);
+    }
+
+    public function testReopenCancelledSessionWithEnrollmentsRefused(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $session = null;
+        foreach ($em->getRepository(Session::class)->findAll() as $candidate) {
+            if (!$candidate->getEnrollments()->isEmpty()) {
+                $session = $candidate;
+                break;
+            }
+        }
+        $session->setStatus(SessionStatusEnum::CANCELLED);
+        $em->flush();
+
+        $data = $this->transition($client, $token, $session, ['transition' => 'reopen']);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->assertStringContainsString('nouvelle session', $data['detail']);
+    }
+
+    public function testSessionAutoLockedWhenDeadlinePassed(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
+        $session->setLimitDateSubscribe(new \DateTime('-1 day'));
+        $em->flush();
+
+        $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals('LOCKED', $data['status']);
+        $this->assertTrue($data['autoLocked']);
+        $this->assertNotNull($data['lockedAutomaticallyAt']);
+    }
+
+    public function testCancelPreviewAndCancelFromOpen(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
+
+        $client->request('GET', '/api/sessions/' . $session->getId() . '/cancel-preview', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $preview = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals(2, $preview['enrollmentCount']);
+        $this->assertEquals(0, $preview['paidEnrollmentCount']);
+        $this->assertEquals(0.0, $preview['refundTotal']);
+        $this->assertEquals('EUR', $preview['currency']);
+        $this->assertArrayHasKey('invoicesToCancel', $preview);
+
+        $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], json_encode([
+            'transition' => 'cancel_from_open',
+        ]));
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals('CANCELLED', $data['status']);
+        $this->assertSame([], $data['refundErrors']);
     }
 
     public function testTransitionCancelFromDraft(): void
@@ -481,7 +656,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         $client->request('PATCH', '/api/sessions/' . $session->getId() . '/transition', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -493,7 +668,7 @@ class SessionTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertEquals('CANCELLED', $data['validation']);
+        $this->assertEquals('CANCELLED', $data['status']);
     }
 
     // ========================
@@ -509,7 +684,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         // Trouver un exam du même assessment
         $exam = $em->getRepository(Exam::class)->findOneBy(['assessment' => $session->getAssessment()]);
@@ -519,7 +694,7 @@ class SessionTest extends WebTestCase
             'CONTENT_TYPE' => 'application/json',
             'HTTP_ACCEPT' => 'application/json',
         ], json_encode([
-            'startDate' => '2026-04-01T10:00:00+00:00',
+            'startDate' => (clone $session->getStart())->modify('+1 hours')->format(\DateTimeInterface::ATOM),
             'room' => 'Salle C',
             'exam' => '/api/exams/' . $exam->getId(),
             'address' => [
@@ -542,7 +717,7 @@ class SessionTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('GET', '/api/sessions/' . $session->getId() . '/scheduled-exams', [], [], [
             'HTTP_ACCEPT' => 'application/json',

@@ -51,7 +51,7 @@ class InstituteAssessmentCreateProcessor implements ProcessorInterface
         $ownership->setAssessment($assessment);
         $ownership->setOwnershipType(OwnershipTypeEnum::OWNER);
         $ownership->setRelationshipDate(new \DateTime());
-        $ownership->setUser($currentUser);
+        $ownership->setCreator($currentUser);
 
         $this->entityManager->persist($ownership);
         $this->entityManager->flush();

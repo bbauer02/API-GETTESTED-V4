@@ -21,6 +21,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AssessmentOwnershipRepository::class)]
 #[ApiResource(
+    shortName: 'assessment-ownerships',
     operations: [
         new GetCollection(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
@@ -80,7 +81,7 @@ class AssessmentOwnership
     private ?Uuid $id = null;
 
     #[ORM\Column(enumType: OwnershipTypeEnum::class)]
-    #[Groups(['ownership:read', 'ownership:write'])]
+    #[Groups(['ownership:read', 'ownership:write', 'assessment:read'])]
     #[Assert\NotBlank]
     private ?OwnershipTypeEnum $ownershipType = null;
 
@@ -91,7 +92,7 @@ class AssessmentOwnership
 
     #[ORM\ManyToOne(targetEntity: Institute::class, inversedBy: 'assessmentOwnerships')]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['ownership:read', 'ownership:write'])]
+    #[Groups(['ownership:read', 'ownership:write', 'assessment:read'])]
     #[Assert\NotNull]
     private ?Institute $institute = null;
 
@@ -104,7 +105,7 @@ class AssessmentOwnership
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true)]
     #[Groups(['ownership:read', 'ownership:write'])]
-    private ?User $user = null;
+    private ?User $creator = null;
 
     public function getId(): ?Uuid
     {
@@ -155,14 +156,14 @@ class AssessmentOwnership
         return $this;
     }
 
-    public function getUser(): ?User
+    public function getCreator(): ?User
     {
-        return $this->user;
+        return $this->creator;
     }
 
-    public function setUser(?User $user): static
+    public function setCreator(?User $creator): static
     {
-        $this->user = $user;
+        $this->creator = $creator;
         return $this;
     }
 }

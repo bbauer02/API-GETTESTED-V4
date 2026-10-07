@@ -1,3 +1,6 @@
 framework:
     mailer:
         dsn: '%env(MAILER_DSN)%'
+        # Expéditeur par défaut de tous les emails transactionnels
+        headers:
+            From: 'GETTESTED <noreply@gettested.fr>'

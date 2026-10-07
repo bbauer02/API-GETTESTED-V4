@@ -43,7 +43,7 @@ class Country
 {
     #[ORM\Id]
     #[ORM\Column(length: 2)]
-    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(exactly: 2)]
     private ?string $code = null;
@@ -67,7 +67,7 @@ class Country
     private ?string $nameEn = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin'])]
+    #[Groups(['country:read', 'country:write', 'user:read:self', 'user:read:admin', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameFr = null;

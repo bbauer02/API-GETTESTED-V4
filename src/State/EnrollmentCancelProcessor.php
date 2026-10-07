@@ -7,7 +7,8 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\EnrollmentSession;
 use App\Entity\User;
 use App\Enum\PlatformRoleEnum;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
+use App\Service\RefundService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\Exception\ConflictHttpException;
@@ -18,6 +19,7 @@ class EnrollmentCancelProcessor implements ProcessorInterface
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
+        private readonly RefundService $refundService,
     ) {
     }
 
@@ -32,8 +34,8 @@ class EnrollmentCancelProcessor implements ProcessorInterface
         $isAdmin = $currentUser->getPlatformRole() === PlatformRoleEnum::ADMIN;
 
         // Vérifier que la session est OPEN (ou DRAFT pour admin)
-        $validation = $session?->getValidation();
-        if ($validation !== SessionValidationEnum::OPEN && !($isAdmin && $validation === SessionValidationEnum::DRAFT)) {
+        $validation = $session?->getStatus();
+        if ($validation !== SessionStatusEnum::OPEN && !($isAdmin && $validation === SessionStatusEnum::DRAFT)) {
             throw new ConflictHttpException('Impossible d\'annuler l\'inscription : la session n\'est pas ouverte.');
         }
 
@@ -41,6 +43,17 @@ class EnrollmentCancelProcessor implements ProcessorInterface
         $limitDate = $session?->getLimitDateSubscribe();
         if (!$isAdmin && $limitDate !== null && new \DateTime() > $limitDate) {
             throw new UnprocessableEntityHttpException('La date limite d\'inscription est dépassée.');
+        }
+
+        // Remboursement Stripe + avoir + annulation des factures (les factures restent en base,
+        // la FK enrollment_session_id passe à NULL à la suppression de l'inscription)
+        $refund = $this->refundService->refundEnrollment($enrollment, 'requested_by_customer');
+
+        // Ne jamais supprimer une inscription dont le paiement n'a pas pu être remboursé
+        if ($refund['errors']) {
+            throw new ConflictHttpException(
+                'Le remboursement Stripe a échoué : l\'inscription est conservée. ' . implode(' ', $refund['errors'])
+            );
         }
 
         // Supprimer les EnrollmentExam associés

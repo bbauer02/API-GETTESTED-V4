@@ -22,6 +22,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: InstituteExamPricingRepository::class)]
 #[ORM\HasLifecycleCallbacks]
 #[ApiResource(
+    shortName: 'institute-exam-pricings',
     operations: [
         new GetCollection(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",

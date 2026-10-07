@@ -71,8 +71,8 @@ class EnrollmentExamVoter extends Voter
             }
         }
 
-        // Institute ADMIN
-        return $this->hasInstituteRole($user, $enrollmentExam, [InstituteRoleEnum::ADMIN]);
+        // Institute ADMIN / STAFF
+        return $this->hasInstituteRole($user, $enrollmentExam, [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF]);
     }
 
     private function hasInstituteRole(User $user, EnrollmentExam $enrollmentExam, array $roles): bool

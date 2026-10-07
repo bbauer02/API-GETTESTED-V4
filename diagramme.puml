@@ -398,4 +398,340 @@ User "*" --[#green]> "0..1" Country : nationality
 User "*" --[#green]> "0..1" Language : firstlanguage
 
 
+
+
+
+
+' ─────────────────────────────────────────────────
+' SYSTÈME DE QUESTIONS, SUJETS & TESTING ADAPTATIF
+' ─────────────────────────────────────────────────
+
+enum "QuestionStatusEnum" {
+    DRAFT
+    PRETESTING
+    CALIBRATED
+    RETIRED
+}
+
+enum "SubjectStatusEnum" {
+    DRAFT
+    LOCKED
+    ARCHIVED
+}
+
+enum "SubjectModeEnum" {
+    FIXED
+    GENERATED
+}
+
+enum "PracticeSessionStatusEnum" {
+    IN_PROGRESS
+    COMPLETED
+    ABANDONED
+}
+
+enum "CandidateResponseStatusEnum" {
+    CORRECT
+    INCORRECT
+    PARTIAL
+    SKIPPED
+}
+
+' ─────── ITEM BANK (Banque de questions) ───────
+
+abstract class Question <<Entity>> {
+    -id: int
+    -label: string
+    -text: string
+    -instruction: string
+    -duration: int
+    -maxPoints: float
+    -status: QuestionStatusEnum
+    ' ── Paramètres IRT (Item Response Theory) ──
+    ' Null tant que status != CALIBRATED
+    -irtDifficulty: float           ' param b : [-3.0 … +3.0]
+    -irtDiscrimination: float       ' param a : [0.3 … 2.5]
+    -irtGuessing: float             ' param c : [0.0 … 0.5] (QCM)
+    -irtStdError: float             ' erreur standard des estimations
+    ' ── Statistiques de calibration ──
+    -timesAdministered: int         ' nb total de passages
+    -successRate: float             ' taux brut de réussite
+    -avgResponseTimeMs: int         ' temps moyen de réponse
+    ' ── Gestion du cycle de vie ──
+    -isSeedItem: bool               ' utilisable en pretest (ne compte pas)
+    -retiredAt: datetime
+    -retiredReason: string
+    -createdAt: datetime
+    -updatedAt: datetime
+}
+
+class MCQQuestion {
+    -isMultipleAnswer: bool
+    -shuffleChoices: bool
+}
+
+class FillBlankQuestion {
+    -blankSymbol: string
+}
+
+class HighlightQuestion {
+    ' zones définies par HighlightZone
+}
+
+class OrderingQuestion {
+    -shuffleOnDisplay: bool
+}
+
+class MatchingQuestion {
+    -shuffleOnDisplay: bool
+}
+
+' ─────── ÉLÉMENTS DE RÉPONSE ───────
+
+class Choice {
+    -text: string
+    -weight: float              ' 1.0=correct, 0.5=partiel, 0.0=faux, <0=pénalité
+    -position: int
+    -feedback: string           ' explication post-réponse
+}
+
+class BlankSlot {
+    -position: int              ' n° du blanc dans le texte
+    -acceptedAnswers: json      ' ["Paris","paris","PARIS"]
+    -caseSensitive: bool
+    -accentSensitive: bool
+}
+
+class HighlightZone {
+    -startIndex: int
+    -endIndex: int
+    -isCorrect: bool
+}
+
+class OrderingItem {
+    -text: string
+    -correctPosition: int
+}
+
+class MatchingPair {
+    -leftText: string
+    -rightText: string
+    -position: int
+}
+
+class Media {
+    -type: enum {IMAGE, AUDIO, VIDEO, YOUTUBE}
+    -url: string
+    -description: string
+    -position: int
+}
+
+' ─────── SUBJECT (Sujet d'examen — unique, figé) ───────
+
+class Subject <<Entity>> {
+    -titre: string
+    -description: string
+    -status: SubjectStatusEnum
+    -mode: SubjectModeEnum
+    -lockedAt: datetime
+    -lockedBy: User
+    -passingScore: float
+    -totalMaxPoints: float
+    -createdAt: datetime
+}
+
+class SubjectQuestion {
+    -position: int
+    -isSeed: bool               ' question de pretest (ne compte pas dans le score)
+    -pointsOverride: float      ' surcharge du maxPoints pour ce sujet (null = défaut)
+}
+
+' ─────── COMPOSITION RULES (règles pour générer un sujet) ───────
+
+class SubjectCompositionRule <<ValueObject>> {
+    -totalQuestions: int
+    -totalSeedQuestions: int
+    -durationMinutes: int
+    -skillDistribution: json           ' {"compréhension": 40, "grammaire": 30, "vocabulaire": 30}
+    -difficultyDistribution: json      ' {"easy": 30, "medium": 50, "hard": 20}
+    -minSpacingDaysGlobal: int         ' espacement min entre 2 usages d'une question
+    -minSpacingDaysSameInstitute: int  ' espacement par centre (plus strict)
+    -maxExposureRate: float            ' % max de candidats voyant une question (ex: 0.35)
+}
+
+' ─────── CANDIDATE RESPONSE (traçabilité) ───────
+
+class CandidateResponse {
+    -givenAnswer: json           ' réponse brute (flexible selon le type)
+    -status: CandidateResponseStatusEnum
+    -score: float
+    -responseTimeMs: int
+    -answeredAt: datetime
+    ' ── Contexte adaptatif (nullable) ──
+    -thetaAtAnswer: float        ' estimation θ du candidat au moment de la réponse
+    -informationValue: float     ' Fisher information apportée par cet item
+}
+
+' ─────── PRACTICE SESSION (entraînement adaptatif) ───────
+
+class PracticeSession {
+    -status: PracticeSessionStatusEnum
+    -startedAt: datetime
+    -finishedAt: datetime
+    -totalQuestions: int
+    -questionsAnswered: int
+    ' ── Estimation IRT ──
+    -initialTheta: float         ' θ de départ (prior ou dernière estimation connue)
+    -finalTheta: float           ' θ final estimé
+    -finalStdError: float        ' précision de l'estimation
+    -estimatedLevel: string      ' mapping θ → Level (ex: "B1")
+    ' ── Diagnostic par compétence ──
+    -skillScores: json           ' {"compréhension": 0.72, "grammaire": 0.45, ...}
+    ' ── Config ──
+    -maxQuestions: int            ' limite max
+    -stoppingSeThreshold: float   ' arrêt quand SE < seuil (ex: 0.3)
+}
+
+' ─────── ABILITY ESTIMATE (suivi longitudinal du niveau) ───────
+
+class AbilityEstimate {
+    -theta: float                ' estimation du niveau
+    -stdError: float             ' précision
+    -estimatedLevel: string      ' mapping → Level label
+    -source: enum {EXAM, PRACTICE, CALIBRATION}
+    -estimatedAt: datetime
+    -skillBreakdown: json        ' détail par compétence
+}
+
+' ═══════════════════════════════════════
+'           RELATIONS
+' ═══════════════════════════════════════
+
+' Héritage des types de questions
+Question <|-- MCQQuestion
+Question <|-- FillBlankQuestion
+Question <|-- HighlightQuestion
+Question <|-- OrderingQuestion
+Question <|-- MatchingQuestion
+
+' Banque : Question appartient à un Assessment (item bank)
+Assessment "1" --[#blue] "0..*" Question : item bank
+
+' Classification des questions
+Question "*" --[#blue]> "1" Level
+Question "*" --[#blue] "*" Skill
+
+' Éléments de réponse
+MCQQuestion "1" o--[#blue] "0..*" Choice
+FillBlankQuestion "1" o--[#blue] "1..*" BlankSlot
+HighlightQuestion "1" o--[#blue] "1..*" HighlightZone
+OrderingQuestion "1" o--[#blue] "2..*" OrderingItem
+MatchingQuestion "1" o--[#blue] "2..*" MatchingPair
+Question "1" o--[#blue] "0..*" Media : has
+
+' Subject ↔ ScheduledExam (1:1, sujet unique)
+Subject "1" --[#blue] "1" ScheduledExam
+
+' Subject ↔ Question via SubjectQuestion (many-to-many, ordonné)
+Subject "1" o--[#blue] "1..*" SubjectQuestion
+SubjectQuestion "*" --[#blue]> "1" Question
+
+' Subject ↔ Composition rule
+Subject "0..*" --[#blue]> "0..1" SubjectCompositionRule : generated with
+
+' Composition rule ↔ Assessment + Level
+SubjectCompositionRule "*" --[#blue]> "1" Assessment
+SubjectCompositionRule "*" --[#blue]> "1" Level
+
+' Traçabilité des réponses (examen officiel)
+CandidateResponse "*" --[#blue]> "1" SubjectQuestion
+CandidateResponse "*" --[#blue]> "1" EnrollmentExam
+
+' Entraînement adaptatif
+PracticeSession "*" --[#blue]> "1" User
+PracticeSession "*" --[#blue]> "1" Assessment
+PracticeSession "*" --[#blue]> "1" Level
+CandidateResponse "*" --[#blue]> "0..1" PracticeSession
+
+' Suivi longitudinal du niveau
+AbilityEstimate "*" --[#blue]> "1" User
+AbilityEstimate "*" --[#blue]> "1" Assessment
+AbilityEstimate "*" --[#blue]> "1" Level
+AbilityEstimate "0..1" --[#blue]> "0..1" PracticeSession : source practice
+AbilityEstimate "0..1" --[#blue]> "0..1" EnrollmentExam : source exam
+
+
+' ═══════════════════════════════════════
+'           NOTES
+' ═══════════════════════════════════════
+
+note right of Question
+  **Item Bank & IRT (Item Response Theory) :**
+  - Chaque question est un "item" de la banque
+  - Paramètres IRT calibrés après ~200+ passages
+  - Cycle de vie : DRAFT → PRETESTING → CALIBRATED → RETIRED
+  - isSeedItem=true : question insérée en pretest,
+    ne compte pas dans le score du candidat,
+    sert uniquement à collecter des données de calibration
+
+  **Modèle IRT 2PL+guessing :**
+  - P(θ) = c + (1-c) / (1 + exp(-a(θ-b)))
+  - b = difficulty, a = discrimination, c = guessing
+  - θ = niveau du candidat (échelle continue)
+end note
+
+note right of Subject
+  **Sujet unique, non réutilisable :**
+  - Comme un sujet du bac : créé, administré, archivé
+  - DRAFT : en composition, modifiable
+  - LOCKED : assigné à un ScheduledExam, immutable
+  - ARCHIVED : examen passé, conservé
+
+  **Deux modes de création :**
+  - FIXED : l'humain choisit les questions une par une
+  - GENERATED : algorithme tire selon SubjectCompositionRule
+    (rotation, fréquence, couverture skills, distribution difficulté)
+  Dans les deux cas, une fois LOCKED → figé et unique
+end note
+
+note right of PracticeSession
+  **Entraînement adaptatif (CAT) :**
+  - Pas de Subject fixe : les questions sont sélectionnées
+    en temps réel par l'algorithme adaptatif
+  - Sélection : Maximum Fisher Information au θ estimé
+  - Arrêt : quand SE < seuil OU maxQuestions atteint
+  - Résultat : θ final + diagnostic par compétence
+
+  **Contrôle d'exposition :**
+  - maxExposureRate sur SubjectCompositionRule
+  - Méthode Sympson-Hetter ou randomesque
+  - Garantit qu'aucune question ne soit vue par
+    plus de X% des candidats sur une période
+end note
+
+note right of CandidateResponse
+  **Enregistre CHAQUE réponse individuelle :**
+  - Lié soit à un SubjectQuestion (examen officiel)
+    soit à une PracticeSession (entraînement)
+  - givenAnswer en JSON pour flexibilité :
+    QCM: {"choiceIds": [3,7]}
+    FillBlank: {"slots": {"1":"Paris","2":"France"}}
+    Highlight: {"zoneIds": [1,4,5]}
+    Ordering: {"order": [3,1,4,2]}
+    Matching: {"pairs": {"1":"B","2":"A","3":"C"}}
+  - thetaAtAnswer : snapshot du θ au moment de la réponse
+    (permet de rejouer la séquence adaptative)
+end note
+
+note right of AbilityEstimate
+  **Suivi longitudinal :**
+  - Historique des estimations de niveau d'un candidat
+    pour un Assessment+Level donné
+  - Source EXAM : après un examen officiel
+  - Source PRACTICE : après un entraînement
+  - Permet de visualiser la progression dans le temps
+  - skillBreakdown : forces/faiblesses par compétence
+end note
+
+
 @enduml

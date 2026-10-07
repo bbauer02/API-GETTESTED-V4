@@ -42,8 +42,6 @@ class AssessmentFixtures extends Fixture implements DependentFixtureInterface
         $toeic->setLabel(self::TOEIC_LABEL);
         $toeic->setRef('TOEIC');
         $toeic->setIsInternal(true);
-        $toeic->addLevel($this->getReference('level_B1', Level::class));
-        $toeic->addLevel($this->getReference('level_B2', Level::class));
         $toeic->addSkill($this->getReference('skill_listening', Skill::class));
         $toeic->addSkill($this->getReference('skill_reading', Skill::class));
         $manager->persist($toeic);
@@ -79,7 +77,7 @@ class AssessmentFixtures extends Fixture implements DependentFixtureInterface
         $ownership1->setAssessment($custom);
         $ownership1->setOwnershipType(OwnershipTypeEnum::OWNER);
         $ownership1->setRelationshipDate(new \DateTime());
-        $ownership1->setUser($admin);
+        $ownership1->setCreator($admin);
         $manager->persist($ownership1);
 
         // AssessmentOwnership : Tenri est BUYER du test personnalisé
@@ -88,7 +86,7 @@ class AssessmentFixtures extends Fixture implements DependentFixtureInterface
         $ownership2->setAssessment($custom);
         $ownership2->setOwnershipType(OwnershipTypeEnum::BUYER);
         $ownership2->setRelationshipDate(new \DateTime());
-        $ownership2->setUser($admin);
+        $ownership2->setCreator($admin);
         $manager->persist($ownership2);
 
         $manager->flush();

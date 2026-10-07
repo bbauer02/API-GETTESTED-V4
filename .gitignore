@@ -17,4 +17,12 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
-nul
+
+###> uploads ###
+/public/uploads/avatars/*
+!/public/uploads/avatars/.gitkeep
+###< uploads ###
+
+# Fichiers envoyés par les utilisateurs et réglages IDE
+/public/uploads/
+/.idea/

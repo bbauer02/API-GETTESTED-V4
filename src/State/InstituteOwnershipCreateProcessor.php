@@ -38,7 +38,7 @@ class InstituteOwnershipCreateProcessor implements ProcessorInterface
 
         /** @var User $currentUser */
         $currentUser = $this->security->getUser();
-        $ownership->setUser($currentUser);
+        $ownership->setCreator($currentUser);
 
         $this->entityManager->persist($ownership);
         $this->entityManager->flush();

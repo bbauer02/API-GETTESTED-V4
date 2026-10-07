@@ -1,0 +1,139 @@
+<?php
+
+namespace App\State;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProcessorInterface;
+use App\Entity\CandidateResponse;
+use App\Entity\EnrollmentExam;
+use App\Enum\EnrollmentExamStatusEnum;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+
+class ExamFinishProcessor implements ProcessorInterface
+{
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly Security $security,
+    ) {}
+
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): array
+    {
+        $enrollmentExamId = $uriVariables['id'] ?? null;
+        $enrollmentExam = $this->entityManager->getRepository(EnrollmentExam::class)->find($enrollmentExamId);
+
+        if (!$enrollmentExam) {
+            throw new NotFoundHttpException('EnrollmentExam introuvable.');
+        }
+
+        $currentUser = $this->security->getUser();
+        $enrollmentSession = $enrollmentExam->getEnrollmentSession();
+        if (!$enrollmentSession || !$enrollmentSession->getUser()->getId()->equals($currentUser->getId())) {
+            throw new AccessDeniedHttpException('Vous n\'êtes pas inscrit à cet examen.');
+        }
+
+        if ($enrollmentExam->getStatus() !== EnrollmentExamStatusEnum::REGISTERED) {
+            throw new UnprocessableEntityHttpException('Cet examen est déjà terminé.');
+        }
+
+        // Get the subject via ScheduledExam -> Subject (OneToOne)
+        $scheduledExam = $enrollmentExam->getScheduledExam();
+        $subject = $scheduledExam?->getSubject();
+
+        if (!$subject) {
+            throw new UnprocessableEntityHttpException('Sujet introuvable.');
+        }
+
+        // Get all responses for this exam
+        $responses = $this->entityManager->getRepository(CandidateResponse::class)->findBy([
+            'enrollmentExam' => $enrollmentExam,
+        ]);
+
+        // Build response map: subjectQuestionId => CandidateResponse
+        $responseMap = [];
+        foreach ($responses as $response) {
+            $sqId = $response->getSubjectQuestion()?->getId()->toRfc4122();
+            if ($sqId) {
+                $responseMap[$sqId] = $response;
+            }
+        }
+
+        // Calculate total score (only non-seed questions) and skill breakdown
+        $totalScore = 0.0;
+        $skillScores = []; // skill label => [earned, max]
+
+        foreach ($subject->getSubjectQuestions() as $sq) {
+            if ($sq->isSeed()) {
+                continue; // seed questions don't count toward score
+            }
+
+            $question = $sq->getQuestion();
+            $maxPoints = $sq->getPointsOverride() ?? $question->getMaxPoints();
+            $sqId = $sq->getId()->toRfc4122();
+            $earned = isset($responseMap[$sqId]) ? $responseMap[$sqId]->getScore() : 0.0;
+
+            $totalScore += $earned;
+
+            // Skill breakdown
+            foreach ($question->getSkills() as $skill) {
+                $skillLabel = $skill->getLabel();
+                if (!isset($skillScores[$skillLabel])) {
+                    $skillScores[$skillLabel] = ['earned' => 0.0, 'max' => 0.0];
+                }
+                $skillScores[$skillLabel]['earned'] += $earned;
+                $skillScores[$skillLabel]['max'] += $maxPoints;
+            }
+        }
+
+        $totalScore = round($totalScore, 2);
+        $passingScore = $subject->getPassingScore() ?? 0;
+        $passed = $totalScore >= $passingScore;
+
+        // Update enrollment exam
+        $enrollmentExam->setFinalScore((int) round($totalScore));
+        $enrollmentExam->setStatus($passed ? EnrollmentExamStatusEnum::PASSED : EnrollmentExamStatusEnum::FAILED);
+
+        // Update question statistics
+        foreach ($responses as $response) {
+            $question = $response->getQuestion();
+            $administered = $question->getTimesAdministered() + 1;
+            $question->setTimesAdministered($administered);
+
+            // Update success rate (running average)
+            $subjectQuestion = $response->getSubjectQuestion();
+            $maxPointsForQ = $subjectQuestion?->getPointsOverride() ?? $question->getMaxPoints();
+            $wasCorrect = $response->getScore() >= $maxPointsForQ;
+            $oldRate = $question->getSuccessRate() ?? 0.0;
+            $newRate = $oldRate + ($wasCorrect ? 1.0 - $oldRate : 0.0 - $oldRate) / $administered;
+            $question->setSuccessRate(round($newRate, 4));
+
+            // Update avg response time
+            $oldAvg = $question->getAvgResponseTimeMs() ?? 0;
+            $newAvg = $oldAvg + ($response->getResponseTimeMs() - $oldAvg) / $administered;
+            $question->setAvgResponseTimeMs((int) round($newAvg));
+        }
+
+        // Build skill breakdown for response
+        $skillBreakdown = [];
+        foreach ($skillScores as $label => $scores) {
+            $skillBreakdown[$label] = $scores['max'] > 0
+                ? round($scores['earned'] / $scores['max'], 4)
+                : 0;
+        }
+
+        $this->entityManager->flush();
+
+        return [
+            'enrollmentExamId' => $enrollmentExam->getId()->toRfc4122(),
+            'totalScore' => $totalScore,
+            'maxScore' => $subject->getTotalMaxPoints(),
+            'passingScore' => $passingScore,
+            'passed' => $passed,
+            'status' => $enrollmentExam->getStatus()->value,
+            'skillBreakdown' => $skillBreakdown,
+        ];
+    }
+}

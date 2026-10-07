@@ -43,7 +43,7 @@ class Language
 {
     #[ORM\Id]
     #[ORM\Column(length: 3)]
-    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin'])]
+    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(min: 2, max: 3)]
     private ?string $code = null;
@@ -61,7 +61,7 @@ class Language
     private ?string $nameEn = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin'])]
+    #[Groups(['language:read', 'language:write', 'country:read:with-languages', 'user:read:self', 'user:read:admin', 'session:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $nameFr = null;

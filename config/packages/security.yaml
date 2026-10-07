@@ -25,6 +25,10 @@ security:
         token_refresh:
             pattern: ^/api/auth/token/refresh
             stateless: true
+        stripe_webhook:
+            pattern: ^/api/webhooks/stripe
+            stateless: true
+            security: false
         api:
             pattern: ^/api/
             stateless: true
@@ -39,6 +43,15 @@ security:
         - { path: ^/api/institutes/[^/]+/ownerships, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes/[^/]+/exam-pricings, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes/[^/]+/sessions, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/exam-centers, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/enrollments, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/exam-centers, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/sessions/[^/]+/cancel-preview, methods: [GET], roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/sessions/[^/]+/documents, methods: [GET], roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/sessions/[^/]+/document-publications, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/enrollment-sessions, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/scheduled-exams, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/users/me/phone, methods: [POST], roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/enroll, methods: [POST], roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/enrollments, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/sessions/[^/]+/transition, methods: [PATCH], roles: IS_AUTHENTICATED_FULLY }
@@ -48,6 +61,10 @@ security:
         - { path: ^/api/invoices/[^/]+/lines, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/invoices/[^/]+/payments, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/payments/[^/]+/(complete|fail|refund), methods: [PATCH], roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/webhooks/stripe, roles: PUBLIC_ACCESS }
+        - { path: ^/api/institutes/[^/]+/stripe, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/institutes/[^/]+/document-templates, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/document-templates, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/institutes, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/assessments, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/levels, methods: [GET], roles: PUBLIC_ACCESS }
@@ -56,6 +73,7 @@ security:
         - { path: ^/api/sessions, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/scheduled_exams, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
+        - { path: ^/api/public/, methods: [GET], roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:

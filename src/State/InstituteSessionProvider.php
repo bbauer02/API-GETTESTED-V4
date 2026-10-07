@@ -9,6 +9,8 @@ use App\Entity\Session;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
+use App\Security\Voter\SessionVoter;
+use App\Service\SessionAutoLockService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -19,6 +21,7 @@ class InstituteSessionProvider implements ProviderInterface
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
+        private readonly SessionAutoLockService $autoLockService,
     ) {
     }
 
@@ -37,20 +40,42 @@ class InstituteSessionProvider implements ProviderInterface
             throw new AccessDeniedHttpException('Vous n\'avez pas les droits pour voir les sessions de cet institut.');
         }
 
-        return $this->entityManager->getRepository(Session::class)->findBy([
+        $sessions = $this->entityManager->getRepository(Session::class)->findBy([
             'institute' => $institute,
         ]);
+
+        // TEACHER : uniquement les sessions dont il est examinateur
+        if (!$this->canViewAllSessions($currentUser, $institute)) {
+            $sessions = array_values(array_filter(
+                $sessions,
+                fn (Session $session) => SessionVoter::isExaminatorOf($currentUser, $session),
+            ));
+        }
+
+        // Verrouillage automatique paresseux des sessions OPEN expirées
+        $this->autoLockService->lockExpiredAmong($sessions);
+
+        return $sessions;
     }
 
     private function canViewSessions(User $user, Institute $institute): bool
     {
-        if ($user->getPlatformRole() === PlatformRoleEnum::ADMIN) {
-            return true;
-        }
+        return $this->canViewAllSessions($user, $institute)
+            || $this->hasActiveRole($user, $institute, [InstituteRoleEnum::TEACHER]);
+    }
 
+    private function canViewAllSessions(User $user, Institute $institute): bool
+    {
+        return $user->getPlatformRole() === PlatformRoleEnum::ADMIN
+            || $this->hasActiveRole($user, $institute, [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF]);
+    }
+
+    private function hasActiveRole(User $user, Institute $institute, array $roles): bool
+    {
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
-                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF])
+                && $membership->isActive()
+                && in_array($membership->getRole(), $roles, true)
             ) {
                 return true;
             }

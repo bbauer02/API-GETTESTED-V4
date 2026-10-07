@@ -30,6 +30,15 @@ class TokenService
         ]);
     }
 
+    public function generateInvitationToken(User $user): string
+    {
+        return $this->jwtEncoder->encode([
+            'email' => $user->getEmail(),
+            'type' => 'invitation',
+            'exp' => time() + 7 * 86400, // 7 jours
+        ]);
+    }
+
     public function validateToken(string $token): ?array
     {
         try {

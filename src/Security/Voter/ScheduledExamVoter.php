@@ -6,7 +6,7 @@ use App\Entity\ScheduledExam;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
@@ -43,7 +43,8 @@ class ScheduledExamVoter extends Voter
             return false;
         }
 
-        if (!in_array($session->getValidation(), [SessionValidationEnum::DRAFT, SessionValidationEnum::OPEN])) {
+        // Allow editing in any status except CANCELLED (for examinator assignment on validated sessions)
+        if ($session->getStatus() === SessionStatusEnum::CANCELLED) {
             return false;
         }
 
@@ -57,7 +58,9 @@ class ScheduledExamVoter extends Voter
             return false;
         }
 
-        if ($session->getValidation() !== SessionValidationEnum::DRAFT) {
+        // Suppression possible tant que la session n'est pas verrouillée/validée/annulée
+        // (les inscriptions rattachées sont contrôlées par ScheduledExamDeleteProcessor → 409)
+        if (!in_array($session->getStatus(), [SessionStatusEnum::DRAFT, SessionStatusEnum::OPEN], true)) {
             return false;
         }
 
@@ -82,7 +85,8 @@ class ScheduledExamVoter extends Voter
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
-                && $membership->getRole() === InstituteRoleEnum::ADMIN
+                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF], true)
+                && $membership->isActive()
             ) {
                 return true;
             }

@@ -21,6 +21,8 @@ use App\State\UserMePatchProcessor;
 use App\State\UserMeProvider;
 use App\State\UserRegistrationProcessor;
 use App\State\UserSoftDeleteProcessor;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
@@ -72,9 +74,9 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
         new Patch(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
-            denormalizationContext: ['groups' => ['user:write:admin']],
+            denormalizationContext: ['groups' => ['user:write:admin', 'user:write:self']],
             normalizationContext: ['groups' => ['user:read:admin']],
-            validationContext: ['groups' => ['user:write:admin']],
+            validationContext: ['groups' => ['user:write:admin', 'user:write:self']],
         ),
         new Delete(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
@@ -96,11 +98,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'session:read'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'session:read', 'membership:read', 'scheduled_exam:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self', 'session:read'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read', 'membership:read', 'scheduled_exam:read', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Email]
     #[Assert\Length(max: 180)]
@@ -113,61 +115,73 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     private ?string $password = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:self', 'membership:read', 'scheduled_exam:read', 'session:read', 'enrollment:read'])]
     private ?string $avatar = null;
 
     #[ORM\Column(enumType: CivilityEnum::class)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:register', 'user:write:self', 'session:read'])]
     #[Assert\NotBlank]
     private ?CivilityEnum $civility = null;
 
     #[ORM\Column(enumType: GenderEnum::class, nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read'])]
     private ?GenderEnum $gender = null;
 
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read', 'membership:read', 'scheduled_exam:read', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     private ?string $firstname = null;
 
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:register', 'user:write:self', 'session:read', 'membership:read', 'scheduled_exam:read', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 100)]
     private ?string $lastname = null;
 
     #[ORM\Column(length: 20, nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read', 'enrollment:read', 'membership:read'])]
     #[Assert\Length(max: 20)]
+    #[Assert\Regex(pattern: '/^\d+$/', message: 'Le numéro de téléphone ne doit contenir que des chiffres (sans indicatif).')]
     private ?string $phone = null;
 
     #[ORM\Column(length: 5, nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read', 'enrollment:read', 'membership:read'])]
     #[Assert\Length(max: 5)]
+    #[Assert\Regex(pattern: '/^\+\d{1,4}$/', message: 'L\'indicatif doit commencer par + suivi de 1 à 4 chiffres.')]
     private ?string $phoneCountryCode = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['user:read:self', 'user:read:admin', 'session:read', 'enrollment:read', 'membership:read'])]
+    private ?\DateTimeInterface $phoneVerifiedAt = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $phoneVerificationCode = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $phoneVerificationExpiresAt = null;
+
     #[ORM\Embedded(class: Address::class, columnPrefix: 'address_')]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read'])]
     private Address $address;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read'])]
     private ?\DateTimeInterface $birthday = null;
 
     #[ORM\ManyToOne(targetEntity: Country::class)]
     #[ORM\JoinColumn(name: 'native_country_code', referencedColumnName: 'code', nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read'])]
     private ?Country $nativeCountry = null;
 
     #[ORM\ManyToOne(targetEntity: Country::class)]
     #[ORM\JoinColumn(name: 'nationality_code', referencedColumnName: 'code', nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read'])]
     private ?Country $nationality = null;
 
     #[ORM\ManyToOne(targetEntity: Language::class)]
     #[ORM\JoinColumn(name: 'firstlanguage_code', referencedColumnName: 'code', nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:write:self', 'session:read'])]
     private ?Language $firstlanguage = null;
 
     #[ORM\Column]
@@ -188,6 +202,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     #[Groups(['user:read:self', 'user:read:admin'])]
     private ?\DateTimeInterface $updatedAt = null;
 
+    #[ORM\Column(length: 10, unique: true, nullable: true)]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'session:read', 'enrollment:read'])]
+    private ?string $candidateNumber = null;
+
     #[ORM\Column(length: 50, nullable: true)]
     #[Groups(['user:read:self', 'user:read:admin', 'user:write:self'])]
     #[Assert\Length(max: 50)]
@@ -201,9 +219,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     #[Groups(['user:read:admin'])]
     private ?\DateTimeInterface $deletedAt = null;
 
+    /** @var Collection<int, InstituteMembership> */
+    #[ORM\OneToMany(targetEntity: InstituteMembership::class, mappedBy: 'user')]
+    #[Groups(['user:read:self'])]
+    private Collection $memberships;
+
     public function __construct()
     {
         $this->address = new Address();
+        $this->memberships = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -328,6 +352,39 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
         return $this;
     }
 
+    public function getPhoneVerifiedAt(): ?\DateTimeInterface
+    {
+        return $this->phoneVerifiedAt;
+    }
+
+    public function setPhoneVerifiedAt(?\DateTimeInterface $phoneVerifiedAt): static
+    {
+        $this->phoneVerifiedAt = $phoneVerifiedAt;
+        return $this;
+    }
+
+    public function getPhoneVerificationCode(): ?string
+    {
+        return $this->phoneVerificationCode;
+    }
+
+    public function setPhoneVerificationCode(?string $phoneVerificationCode): static
+    {
+        $this->phoneVerificationCode = $phoneVerificationCode;
+        return $this;
+    }
+
+    public function getPhoneVerificationExpiresAt(): ?\DateTimeInterface
+    {
+        return $this->phoneVerificationExpiresAt;
+    }
+
+    public function setPhoneVerificationExpiresAt(?\DateTimeInterface $phoneVerificationExpiresAt): static
+    {
+        $this->phoneVerificationExpiresAt = $phoneVerificationExpiresAt;
+        return $this;
+    }
+
     public function getAddress(): Address
     {
         return $this->address;
@@ -383,12 +440,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
         return $this;
     }
 
+    /** Exposé sous le nom "isVerified" dans les membres d'institut (contrat front). */
+    #[Groups(['membership:read'])]
+    public function getIsVerified(): bool
+    {
+        return $this->isVerified;
+    }
+
+    /** Exposé sous le nom "isActive" dans les membres d'institut (contrat front). */
+    #[Groups(['membership:read'])]
+    public function getIsActive(): bool
+    {
+        return $this->isActive;
+    }
+
     #[Groups(['user:read:self', 'user:read:admin'])]
     public function isVerified(): bool
     {
         return $this->isVerified;
     }
 
+    #[Groups(['user:write:admin'])]
     public function setIsVerified(bool $isVerified): static
     {
         $this->isVerified = $isVerified;
@@ -427,6 +499,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     public function getUpdatedAt(): ?\DateTimeInterface
     {
         return $this->updatedAt;
+    }
+
+    public function getCandidateNumber(): ?string
+    {
+        return $this->candidateNumber;
+    }
+
+    public function setCandidateNumber(?string $candidateNumber): static
+    {
+        $this->candidateNumber = $candidateNumber;
+        return $this;
     }
 
     public function getPreviousRegistrationNumber(): ?string
@@ -473,6 +556,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTime();
+    }
+
+    /** @return Collection<int, InstituteMembership> */
+    public function getMemberships(): Collection
+    {
+        return $this->memberships;
     }
 
     // ContactableInterface

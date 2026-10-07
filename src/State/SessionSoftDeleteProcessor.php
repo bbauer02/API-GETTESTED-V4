@@ -5,7 +5,7 @@ namespace App\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Session;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Exception\ConflictHttpException;
 
@@ -21,7 +21,7 @@ class SessionSoftDeleteProcessor implements ProcessorInterface
         /** @var Session $session */
         $session = $data;
 
-        if ($session->getValidation() !== SessionValidationEnum::DRAFT) {
+        if ($session->getStatus() !== SessionStatusEnum::DRAFT) {
             throw new ConflictHttpException('Seule une session en statut DRAFT peut être supprimée.');
         }
 

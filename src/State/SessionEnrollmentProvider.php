@@ -59,6 +59,7 @@ class SessionEnrollmentProvider implements ProviderInterface
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
+                && $membership->isActive()
                 && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF])
             ) {
                 return true;

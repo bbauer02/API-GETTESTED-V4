@@ -46,6 +46,26 @@ services:
       timeout: 5s
       retries: 5
 
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    container_name: gettested-cloudbeaver
+    restart: unless-stopped
+    ports:
+      - "8978:8978"
+    volumes:
+      - cloudbeaver_data:/opt/cloudbeaver/workspace
+    depends_on:
+      database:
+        condition: service_healthy
+
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: gettested-stripe-cli
+    restart: unless-stopped
+    command: listen --events checkout.session.completed,checkout.session.expired,payment_intent.payment_failed,account.updated --forward-to https://php/api/webhooks/stripe --skip-verify --api-key ${STRIPE_SECRET_KEY:-sk_test_CHANGE_ME}
+    depends_on:
+      - php
+
   mailpit:
     image: axllent/mailpit:latest
     container_name: gettested-mailpit
@@ -60,3 +80,4 @@ volumes:
   caddy_config:
   app_var:
   app_vendor:
+  cloudbeaver_data:

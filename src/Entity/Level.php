@@ -8,9 +8,11 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\LevelRepository;
+use App\State\AssessmentLevelCreateProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
@@ -41,6 +43,24 @@ use Symfony\Component\Validator\Constraints as Assert;
     ],
     paginationItemsPerPage: 30,
 )]
+#[ApiResource(
+    uriTemplate: '/assessments/{assessmentId}/levels',
+    operations: [
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: AssessmentLevelCreateProcessor::class,
+            denormalizationContext: ['groups' => ['level:write']],
+            normalizationContext: ['groups' => ['level:read']],
+        ),
+    ],
+    uriVariables: [
+        'assessmentId' => new Link(
+            fromProperty: 'levels',
+            fromClass: Assessment::class,
+        ),
+    ],
+)]
 #[ApiFilter(SearchFilter::class, properties: [
     'label' => 'partial',
     'ref' => 'exact',
@@ -51,17 +71,17 @@ class Level
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['level:read', 'session:read'])]
+    #[Groups(['level:read', 'exam:read', 'assessment:read', 'session:read', 'enrollment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['level:read', 'level:write', 'session:read'])]
+    #[Groups(['level:read', 'level:write', 'exam:read', 'assessment:read', 'session:read', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
 
     #[ORM\Column(length: 50)]
-    #[Groups(['level:read', 'level:write'])]
+    #[Groups(['level:read', 'level:write', 'exam:read', 'assessment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 50)]
     private ?string $ref = null;

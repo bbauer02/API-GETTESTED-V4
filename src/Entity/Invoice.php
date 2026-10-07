@@ -2,6 +2,8 @@
 
 namespace App\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
@@ -79,21 +81,25 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
     ],
 )]
+#[ApiFilter(SearchFilter::class, properties: [
+    'businessType' => 'exact',
+    'status' => 'exact',
+])]
 class Invoice
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['invoice:read', 'payment:read'])]
+    #[Groups(['invoice:read', 'payment:read', 'enrollment:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 50, nullable: true, unique: true)]
-    #[Groups(['invoice:read'])]
+    #[Groups(['invoice:read', 'enrollment:read', 'session:read'])]
     private ?string $invoiceNumber = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
-    #[Groups(['invoice:read'])]
+    #[Groups(['invoice:read', 'enrollment:read', 'session:read'])]
     private ?\DateTimeInterface $invoiceDate = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
@@ -109,11 +115,11 @@ class Invoice
     private Counterparty $buyer;
 
     #[ORM\Column(enumType: InvoiceTypeEnum::class)]
-    #[Groups(['invoice:read', 'invoice:write'])]
+    #[Groups(['invoice:read', 'invoice:write', 'enrollment:read', 'session:read'])]
     private InvoiceTypeEnum $invoiceType = InvoiceTypeEnum::INVOICE;
 
     #[ORM\Column(enumType: BusinessTypeEnum::class)]
-    #[Groups(['invoice:read', 'invoice:write'])]
+    #[Groups(['invoice:read', 'invoice:write', 'session:read', 'enrollment:read'])]
     #[Assert\NotBlank]
     private ?BusinessTypeEnum $businessType = null;
 
@@ -150,7 +156,7 @@ class Invoice
     private float $totalTVA = 0;
 
     #[ORM\Column(type: 'float')]
-    #[Groups(['invoice:read'])]
+    #[Groups(['invoice:read', 'enrollment:read', 'session:read'])]
     private float $totalTTC = 0;
 
     #[ORM\Column(length: 3)]
@@ -158,7 +164,7 @@ class Invoice
     private string $currency = 'EUR';
 
     #[ORM\Column(enumType: InvoiceStatusEnum::class)]
-    #[Groups(['invoice:read'])]
+    #[Groups(['invoice:read', 'enrollment:read', 'session:read'])]
     private InvoiceStatusEnum $status = InvoiceStatusEnum::DRAFT;
 
     #[ORM\Column(length: 255, nullable: true)]

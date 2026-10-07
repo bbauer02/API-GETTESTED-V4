@@ -7,6 +7,7 @@ use ApiPlatform\State\ProviderInterface;
 use App\Entity\Institute;
 use App\Entity\Invoice;
 use App\Entity\User;
+use App\Enum\BusinessTypeEnum;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;

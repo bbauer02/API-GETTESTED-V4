@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: StripeAccountRepository::class)]
 #[ApiResource(
+    shortName: 'stripe-accounts',
     operations: [
         new Get(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
@@ -50,6 +51,23 @@ class StripeAccount
     #[Groups(['stripe_account:read', 'stripe_account:write', 'institute:read'])]
     private bool $isActivated = false;
 
+    #[ORM\Column]
+    #[Groups(['stripe_account:read', 'institute:read'])]
+    private bool $chargesEnabled = false;
+
+    #[ORM\Column]
+    #[Groups(['stripe_account:read', 'institute:read'])]
+    private bool $payoutsEnabled = false;
+
+    #[ORM\Column]
+    #[Groups(['stripe_account:read', 'institute:read'])]
+    private bool $onboardingComplete = false;
+
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    #[Groups(['stripe_account:read', 'stripe_account:write', 'institute:read'])]
+    #[Assert\Range(min: 0, max: 100)]
+    private ?string $commissionPercent = null;
+
     #[ORM\OneToOne(inversedBy: 'stripeAccount', targetEntity: Institute::class)]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['stripe_account:read', 'stripe_account:write'])]
@@ -79,6 +97,50 @@ class StripeAccount
     public function setIsActivated(bool $isActivated): static
     {
         $this->isActivated = $isActivated;
+        return $this;
+    }
+
+    public function isChargesEnabled(): bool
+    {
+        return $this->chargesEnabled;
+    }
+
+    public function setChargesEnabled(bool $chargesEnabled): static
+    {
+        $this->chargesEnabled = $chargesEnabled;
+        return $this;
+    }
+
+    public function isPayoutsEnabled(): bool
+    {
+        return $this->payoutsEnabled;
+    }
+
+    public function setPayoutsEnabled(bool $payoutsEnabled): static
+    {
+        $this->payoutsEnabled = $payoutsEnabled;
+        return $this;
+    }
+
+    public function isOnboardingComplete(): bool
+    {
+        return $this->onboardingComplete;
+    }
+
+    public function setOnboardingComplete(bool $onboardingComplete): static
+    {
+        $this->onboardingComplete = $onboardingComplete;
+        return $this;
+    }
+
+    public function getCommissionPercent(): ?string
+    {
+        return $this->commissionPercent;
+    }
+
+    public function setCommissionPercent(?string $commissionPercent): static
+    {
+        $this->commissionPercent = $commissionPercent;
         return $this;
     }
 

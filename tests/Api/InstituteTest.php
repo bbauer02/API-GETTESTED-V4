@@ -127,17 +127,40 @@ class InstituteTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
-    public function testDeleteInstituteAsPlatformAdmin(): void
+    public function testDeleteInstituteWithHistoryIsRefused(): void
     {
         $client = static::createClient();
         $this->loadFixtures();
 
-        // Baptiste est PLATFORM_ADMIN → peut supprimer n'importe quel institut
+        // Baptiste est PLATFORM_ADMIN, mais un institut qui a des sessions ou des factures est conservé
         $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
         $institute = $em->getRepository(Institute::class)->findOneBy(['label' => InstituteFixtures::INSTITUTE2_LABEL]);
+
+        $client->request('DELETE', '/api/institutes/' . $institute->getId(), [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->assertNotNull($em->getRepository(Institute::class)->find($institute->getId()));
+    }
+
+    public function testDeleteEmptyInstituteAsPlatformAdmin(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $institute = new Institute();
+        $institute->setLabel('Institut sans historique');
+        $em->persist($institute);
+        $em->flush();
 
         $client->request('DELETE', '/api/institutes/' . $institute->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,

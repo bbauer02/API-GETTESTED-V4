@@ -24,6 +24,7 @@ class ResetPasswordController extends AbstractController
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
+        private readonly string $frontendUrl,
     ) {
     }
 
@@ -34,7 +35,7 @@ class ResetPasswordController extends AbstractController
         $email = $data['email'] ?? null;
 
         if (!$email) {
-            return new JsonResponse(['message' => 'Demande traitée.'], Response::HTTP_OK);
+            return $this->hydraSuccess('Demande traitée.');
         }
 
         $user = $this->userRepository->findOneByEmail($email);
@@ -44,7 +45,7 @@ class ResetPasswordController extends AbstractController
 
             $html = $this->twig->render('email/reset_password.html.twig', [
                 'user' => $user,
-                'token' => $token,
+                'resetUrl' => rtrim($this->frontendUrl, '/') . '/auth/jwt/reset-password/?token=' . urlencode($token),
             ]);
 
             $emailMessage = (new Email())
@@ -56,7 +57,7 @@ class ResetPasswordController extends AbstractController
         }
 
         // Always return 200 to not reveal email existence
-        return new JsonResponse(['message' => 'Si un compte existe avec cette adresse email, un lien de réinitialisation a été envoyé.'], Response::HTTP_OK);
+        return $this->hydraSuccess('Si un compte existe avec cette adresse email, un lien de réinitialisation a été envoyé.');
     }
 
     #[Route('/api/auth/reset-password/{token}', name: 'auth_reset_password', methods: ['POST'])]
@@ -65,25 +66,45 @@ class ResetPasswordController extends AbstractController
         $payload = $this->tokenService->validateToken($token);
 
         if (!$payload || ($payload['type'] ?? null) !== 'reset_password') {
-            return new JsonResponse(['message' => 'Token invalide ou expiré.'], Response::HTTP_BAD_REQUEST);
+            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide ou expiré.');
         }
 
         $data = json_decode($request->getContent(), true);
         $newPassword = $data['newPassword'] ?? null;
 
         if (!$newPassword || strlen($newPassword) < 8) {
-            return new JsonResponse(['message' => 'Le mot de passe doit contenir au moins 8 caractères.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->hydraError(Response::HTTP_UNPROCESSABLE_ENTITY, 'Le mot de passe doit contenir au moins 8 caractères.');
         }
 
         $user = $this->userRepository->findOneByEmail($payload['email']);
         if (!$user) {
-            return new JsonResponse(['message' => 'Token invalide.'], Response::HTTP_BAD_REQUEST);
+            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide.');
         }
 
         $hashedPassword = $this->passwordHasher->hashPassword($user, $newPassword);
         $user->setPassword($hashedPassword);
         $this->entityManager->flush();
 
-        return new JsonResponse(['message' => 'Mot de passe réinitialisé avec succès.'], Response::HTTP_OK);
+        return $this->hydraSuccess('Mot de passe réinitialisé avec succès.');
+    }
+
+    private function hydraSuccess(string $message): JsonResponse
+    {
+        return new JsonResponse([
+            '@context' => '/api/contexts/ResetPassword',
+            '@type' => 'ResetPassword',
+            'message' => $message,
+        ], Response::HTTP_OK, ['Content-Type' => 'application/ld+json']);
+    }
+
+    private function hydraError(int $status, string $detail): JsonResponse
+    {
+        return new JsonResponse([
+            '@context' => '/api/contexts/Error',
+            '@type' => 'Error',
+            'title' => 'An error occurred',
+            'detail' => $detail,
+            'status' => $status,
+        ], $status, ['Content-Type' => 'application/ld+json']);
     }
 }

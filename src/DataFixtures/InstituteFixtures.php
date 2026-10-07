@@ -39,6 +39,12 @@ class InstituteFixtures extends Fixture implements DependentFixtureInterface
         $institute1 = new Institute();
         $institute1->setLabel(self::INSTITUTE1_LABEL);
         $institute1->setSiteweb('www.institut-france.fr');
+        $institute1->setSiren('443061841');
+        $institute1->setSiret('44306184100015');
+        $institute1->setVatNumber('FR27443061841');
+        $institute1->setLegalForm('SAS');
+        $institute1->setShareCapital('50 000 €');
+        $institute1->setRcsCity('Paris');
         $institute1->setSocialNetworks([
             'facebook' => 'FbProfil',
             'twitter' => 'TwitProfil',
@@ -58,6 +64,9 @@ class InstituteFixtures extends Fixture implements DependentFixtureInterface
         $stripe1 = new StripeAccount();
         $stripe1->setStripeId('acct_1KxRS8QxaIfpu4Sw');
         $stripe1->setIsActivated(true);
+        $stripe1->setChargesEnabled(true);
+        $stripe1->setPayoutsEnabled(true);
+        $stripe1->setOnboardingComplete(true);
         $stripe1->setInstitute($institute1);
         $manager->persist($stripe1);
 
@@ -69,6 +78,12 @@ class InstituteFixtures extends Fixture implements DependentFixtureInterface
         $institute2 = new Institute();
         $institute2->setLabel(self::INSTITUTE2_LABEL);
         $institute2->setSiteweb('www.tenri.co.jp');
+        $institute2->setSiren('512345678');
+        $institute2->setSiret('51234567800021');
+        $institute2->setVatNumber('FR32512345678');
+        $institute2->setLegalForm('Association loi 1901');
+        $institute2->setShareCapital(null);
+        $institute2->setRcsCity('Paris');
         $institute2->setSocialNetworks([
             'facebook' => 'FbProfil',
             'twitter' => 'TwitProfil',
@@ -87,8 +102,11 @@ class InstituteFixtures extends Fixture implements DependentFixtureInterface
         $manager->persist($institute2);
 
         $stripe2 = new StripeAccount();
-        $stripe2->setStripeId('acct_1KxRS8QxaIfpu4Sw');
+        $stripe2->setStripeId('acct_2TenriJapanese');
         $stripe2->setIsActivated(true);
+        $stripe2->setChargesEnabled(true);
+        $stripe2->setPayoutsEnabled(true);
+        $stripe2->setOnboardingComplete(true);
         $stripe2->setInstitute($institute2);
         $manager->persist($stripe2);
 

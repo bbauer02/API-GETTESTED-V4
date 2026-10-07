@@ -6,7 +6,7 @@ use ApiPlatform\Doctrine\Orm\Extension\QueryCollectionExtensionInterface;
 use ApiPlatform\Doctrine\Orm\Util\QueryNameGeneratorInterface;
 use ApiPlatform\Metadata\Operation;
 use App\Entity\Session;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\QueryBuilder;
 
 class SessionPublicExtension implements QueryCollectionExtensionInterface
@@ -29,7 +29,7 @@ class SessionPublicExtension implements QueryCollectionExtensionInterface
 
         $rootAlias = $queryBuilder->getRootAliases()[0];
         $queryBuilder
-            ->andWhere(sprintf('%s.validation = :open_status', $rootAlias))
-            ->setParameter('open_status', SessionValidationEnum::OPEN);
+            ->andWhere(sprintf('%s.status = :open_status', $rootAlias))
+            ->setParameter('open_status', SessionStatusEnum::OPEN);
     }
 }

@@ -7,15 +7,20 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
 use App\Enum\EnrollmentExamStatusEnum;
 use App\Repository\EnrollmentExamRepository;
 use App\State\EnrollmentExamScoreProcessor;
+use App\State\ExamAnswerProcessor;
+use App\State\ExamFinishProcessor;
+use App\State\ExamStartProvider;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: EnrollmentExamRepository::class)]
 #[ApiResource(
+    shortName: 'enrollment-exams',
     operations: [
         new Get(
             security: "is_granted('ENROLLMENT_EXAM_VIEW', object)",
@@ -46,21 +51,52 @@ use Symfony\Component\Uid\Uuid;
         ),
     ],
 )]
+#[ApiResource(
+    uriTemplate: '/enrollment-exams/{id}/start',
+    operations: [
+        new Get(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: ExamStartProvider::class,
+        ),
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/enrollment-exams/{id}/answer',
+    operations: [
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            processor: ExamAnswerProcessor::class,
+            deserialize: false,
+            read: true,
+        ),
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/enrollment-exams/{id}/finish',
+    operations: [
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            processor: ExamFinishProcessor::class,
+            deserialize: false,
+            read: true,
+        ),
+    ],
+)]
 class EnrollmentExam
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['enrollment_exam:read', 'enrollment:read'])]
+    #[Groups(['enrollment_exam:read', 'enrollment:read', 'session:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['enrollment_exam:read', 'enrollment_exam:score', 'enrollment:read'])]
+    #[Groups(['enrollment_exam:read', 'enrollment_exam:score', 'enrollment:read', 'session:read'])]
     private ?int $finalScore = null;
 
     #[ORM\Column(enumType: EnrollmentExamStatusEnum::class)]
-    #[Groups(['enrollment_exam:read', 'enrollment:read'])]
+    #[Groups(['enrollment_exam:read', 'enrollment_exam:score', 'enrollment:read', 'session:read'])]
     private EnrollmentExamStatusEnum $status = EnrollmentExamStatusEnum::REGISTERED;
 
     #[ORM\ManyToOne(targetEntity: EnrollmentSession::class, inversedBy: 'enrollmentExams')]
@@ -70,7 +106,7 @@ class EnrollmentExam
 
     #[ORM\ManyToOne(targetEntity: ScheduledExam::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['enrollment_exam:read', 'enrollment:read'])]
+    #[Groups(['enrollment_exam:read', 'enrollment:read', 'session:read'])]
     private ?ScheduledExam $scheduledExam = null;
 
     public function getId(): ?Uuid

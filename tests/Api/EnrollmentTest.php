@@ -6,7 +6,7 @@ use App\DataFixtures\UserFixtures;
 use App\Entity\EnrollmentExam;
 use App\Entity\EnrollmentSession;
 use App\Entity\Session;
-use App\Enum\SessionValidationEnum;
+use App\Enum\SessionStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,7 +29,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('POST', '/api/sessions/' . $session->getId() . '/enroll', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -55,7 +55,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::DRAFT]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::DRAFT]);
 
         $client->request('POST', '/api/sessions/' . $session->getId() . '/enroll', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -76,7 +76,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('POST', '/api/sessions/' . $session->getId() . '/enroll', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -96,7 +96,7 @@ class EnrollmentTest extends WebTestCase
         $em = $container->get(EntityManagerInterface::class);
 
         // Réduire les places à 2 (déjà 2 inscriptions : Christophe et Didier)
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
         $session->setPlacesAvailable(2);
         $em->flush();
 
@@ -120,7 +120,7 @@ class EnrollmentTest extends WebTestCase
         $em = $container->get(EntityManagerInterface::class);
 
         // Mettre la date limite dans le passé
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
         $session->setLimitDateSubscribe(new \DateTime('2020-01-01'));
         $em->flush();
 
@@ -142,7 +142,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('POST', '/api/sessions/' . $session->getId() . '/enroll', [], [], [
             'CONTENT_TYPE' => 'application/json',
@@ -170,7 +170,7 @@ class EnrollmentTest extends WebTestCase
             'user' => $em->getRepository(\App\Entity\User::class)->findOneBy(['email' => UserFixtures::USER2_EMAIL]),
         ]);
 
-        $client->request('GET', '/api/enrollment_sessions/' . $enrollment->getId(), [], [], [
+        $client->request('GET', '/api/enrollment-sessions/' . $enrollment->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'HTTP_ACCEPT' => 'application/json',
         ]);
@@ -213,7 +213,7 @@ class EnrollmentTest extends WebTestCase
 
         $token = $this->getJwtToken(UserFixtures::USER2_EMAIL, UserFixtures::DEFAULT_PASSWORD);
 
-        $client->request('GET', '/api/enrollment_sessions/' . $enrollmentDidier->getId(), [], [], [
+        $client->request('GET', '/api/enrollment-sessions/' . $enrollmentDidier->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'HTTP_ACCEPT' => 'application/json',
         ]);
@@ -236,7 +236,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['validation' => SessionValidationEnum::OPEN]);
+        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
 
         $client->request('GET', '/api/sessions/' . $session->getId() . '/enrollments', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -246,6 +246,16 @@ class EnrollmentTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
         $this->assertGreaterThanOrEqual(2, count($data));
+    }
+
+    /** La saisie des résultats n'est ouverte qu'une fois la session verrouillée. */
+    private function scorableEnrollmentExam(EntityManagerInterface $em): EnrollmentExam
+    {
+        $enrollmentExam = $em->getRepository(EnrollmentExam::class)->findOneBy([]);
+        $enrollmentExam->getEnrollmentSession()->getSession()->setStatus(\App\Enum\SessionStatusEnum::LOCKED);
+        $em->flush();
+
+        return $enrollmentExam;
     }
 
     // ========================
@@ -262,20 +272,20 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $enrollmentExam = $em->getRepository(EnrollmentExam::class)->findOneBy([]);
+        $enrollmentExam = $this->scorableEnrollmentExam($em);
 
         $client->request('PATCH', '/api/enrollment-exams/' . $enrollmentExam->getId() . '/score', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'CONTENT_TYPE' => 'application/merge-patch+json',
             'HTTP_ACCEPT' => 'application/json',
         ], json_encode([
-            'finalScore' => 75,
+            'finalScore' => 300,
         ]));
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertEquals(75, $data['finalScore']);
-        // successScore du TOEIC Listening = 50, donc 75 >= 50 → PASSED
+        $this->assertEquals(300, $data['finalScore']);
+        // successScore des épreuves TOEIC = 225, donc 300 >= 225 → PASSED
         $this->assertEquals('PASSED', $data['status']);
     }
 
@@ -288,7 +298,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $enrollmentExam = $em->getRepository(EnrollmentExam::class)->findOneBy([]);
+        $enrollmentExam = $this->scorableEnrollmentExam($em);
 
         $client->request('PATCH', '/api/enrollment-exams/' . $enrollmentExam->getId() . '/score', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -301,7 +311,7 @@ class EnrollmentTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
         $this->assertEquals(30, $data['finalScore']);
-        // 30 < 50 → FAILED
+        // 30 < 225 → FAILED
         $this->assertEquals('FAILED', $data['status']);
     }
 
@@ -315,7 +325,7 @@ class EnrollmentTest extends WebTestCase
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
-        $enrollmentExam = $em->getRepository(EnrollmentExam::class)->findOneBy([]);
+        $enrollmentExam = $this->scorableEnrollmentExam($em);
 
         $client->request('PATCH', '/api/enrollment-exams/' . $enrollmentExam->getId() . '/score', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -326,6 +336,47 @@ class EnrollmentTest extends WebTestCase
         ]));
 
         $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+    }
+
+    public function testMarkAbsentClearsScore(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $enrollmentExam = $this->scorableEnrollmentExam($em);
+
+        $client->request('PATCH', '/api/enrollment-exams/' . $enrollmentExam->getId() . '/score', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], json_encode(['status' => 'ABSENT', 'finalScore' => 500]));
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        $this->assertEquals('ABSENT', $data['status']);
+        $this->assertNull($data['finalScore'] ?? null);
+    }
+
+    public function testScoreRefusedWhileSessionOpen(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $enrollmentExam = $em->getRepository(EnrollmentExam::class)->findOneBy([]);
+        $enrollmentExam->getEnrollmentSession()->getSession()->setStatus(\App\Enum\SessionStatusEnum::OPEN);
+        $em->flush();
+
+        $client->request('PATCH', '/api/enrollment-exams/' . $enrollmentExam->getId() . '/score', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'CONTENT_TYPE' => 'application/merge-patch+json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], json_encode(['finalScore' => 300]));
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     // ========================
@@ -346,7 +397,7 @@ class EnrollmentTest extends WebTestCase
             'user' => $em->getRepository(\App\Entity\User::class)->findOneBy(['email' => UserFixtures::USER2_EMAIL]),
         ]);
 
-        $client->request('DELETE', '/api/enrollment_sessions/' . $enrollment->getId(), [], [], [
+        $client->request('DELETE', '/api/enrollment-sessions/' . $enrollment->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'HTTP_ACCEPT' => 'application/json',
         ]);
@@ -370,7 +421,7 @@ class EnrollmentTest extends WebTestCase
         // Christophe essaie d'annuler l'enrollment de Didier
         $token = $this->getJwtToken(UserFixtures::USER2_EMAIL, UserFixtures::DEFAULT_PASSWORD);
 
-        $client->request('DELETE', '/api/enrollment_sessions/' . $enrollmentDidier->getId(), [], [], [
+        $client->request('DELETE', '/api/enrollment-sessions/' . $enrollmentDidier->getId(), [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'HTTP_ACCEPT' => 'application/json',
         ]);

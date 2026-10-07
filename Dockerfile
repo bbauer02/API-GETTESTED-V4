@@ -26,7 +26,9 @@ RUN echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "realpath_cache_size=4096K" >> /usr/local/etc/php/conf.d/app.ini && \
-    echo "realpath_cache_ttl=600" >> /usr/local/etc/php/conf.d/app.ini
+    echo "realpath_cache_ttl=600" >> /usr/local/etc/php/conf.d/app.ini && \
+    echo "upload_max_filesize=10M" >> /usr/local/etc/php/conf.d/app.ini && \
+    echo "post_max_size=12M" >> /usr/local/etc/php/conf.d/app.ini
 
 # Expose ports
 EXPOSE 80 443

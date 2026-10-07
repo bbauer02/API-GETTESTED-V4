@@ -5,8 +5,16 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
+use App\Dto\EnrollmentTransferInput;
 use App\Repository\EnrollmentSessionRepository;
 use App\State\EnrollmentCancelProcessor;
+use ApiPlatform\Metadata\Link;
+use App\State\EnrollmentTransferProcessor;
+use App\State\InstituteEnrollmentProvider;
+use App\State\MyEnrollmentsProvider;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -17,17 +25,60 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: EnrollmentSessionRepository::class)]
 #[ApiResource(
+    shortName: 'enrollment-sessions',
     operations: [
         new Get(
             security: "is_granted('ENROLLMENT_VIEW', object)",
-            normalizationContext: ['groups' => ['enrollment:read']],
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
+        ),
+        new Patch(
+            security: "is_granted('ENROLLMENT_EDIT', object)",
+            denormalizationContext: ['groups' => ['enrollment:update']],
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
         ),
         new Delete(
             security: "is_granted('ENROLLMENT_CANCEL', object)",
             processor: EnrollmentCancelProcessor::class,
         ),
+        new Post(
+            uriTemplate: '/enrollment-sessions/{id}/transfer',
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            input: EnrollmentTransferInput::class,
+            processor: EnrollmentTransferProcessor::class,
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
+            status: 200,
+            name: 'enrollment_transfer',
+        ),
     ],
     paginationItemsPerPage: 30,
+)]
+#[ApiResource(
+    uriTemplate: '/users/me/enrollments',
+    shortName: 'enrollment-sessions',
+    operations: [
+        new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: MyEnrollmentsProvider::class,
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
+            name: 'my_enrollments',
+        ),
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/institutes/{instituteId}/enrollments',
+    shortName: 'enrollment-sessions',
+    operations: [
+        new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            provider: InstituteEnrollmentProvider::class,
+            normalizationContext: ['groups' => ['enrollment:read'], 'skip_null_values' => false],
+            name: 'institute_enrollments',
+        ),
+    ],
+    uriVariables: [
+        'instituteId' => new Link(toClass: Institute::class),
+    ],
 )]
 class EnrollmentSession
 {
@@ -38,13 +89,17 @@ class EnrollmentSession
     #[Groups(['enrollment:read', 'session:read'])]
     private ?Uuid $id = null;
 
+    #[ORM\Column(length: 15, unique: true, nullable: true)]
+    #[Groups(['enrollment:read', 'session:read'])]
+    private ?string $referenceNumber = null;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     #[Groups(['enrollment:read', 'session:read'])]
     #[Assert\NotBlank]
     private ?\DateTimeInterface $registrationDate = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
-    #[Groups(['enrollment:read', 'session:read'])]
+    #[Groups(['enrollment:read', 'enrollment:update', 'session:read'])]
     private ?string $information = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
@@ -61,12 +116,12 @@ class EnrollmentSession
 
     /** @var Collection<int, EnrollmentExam> */
     #[ORM\OneToMany(targetEntity: EnrollmentExam::class, mappedBy: 'enrollmentSession')]
-    #[Groups(['enrollment:read'])]
+    #[Groups(['enrollment:read', 'session:read'])]
     private Collection $enrollmentExams;
 
     /** @var Collection<int, Invoice> */
     #[ORM\OneToMany(targetEntity: Invoice::class, mappedBy: 'enrollmentSession')]
-    #[Groups(['enrollment:read'])]
+    #[Groups(['enrollment:read', 'session:read'])]
     private Collection $invoices;
 
     public function __construct()
@@ -78,6 +133,17 @@ class EnrollmentSession
     public function getId(): ?Uuid
     {
         return $this->id;
+    }
+
+    public function getReferenceNumber(): ?string
+    {
+        return $this->referenceNumber;
+    }
+
+    public function setReferenceNumber(?string $referenceNumber): static
+    {
+        $this->referenceNumber = $referenceNumber;
+        return $this;
     }
 
     public function getRegistrationDate(): ?\DateTimeInterface

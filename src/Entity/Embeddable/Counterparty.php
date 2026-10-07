@@ -52,6 +52,10 @@ class Counterparty
     #[Groups(['invoice:read', 'invoice:write'])]
     private ?string $rcsCity = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['invoice:read', 'invoice:write'])]
+    private ?string $logoUrl = null;
+
     public function getName(): ?string
     {
         return $this->name;
@@ -170,6 +174,17 @@ class Counterparty
     public function setRcsCity(?string $rcsCity): static
     {
         $this->rcsCity = $rcsCity;
+        return $this;
+    }
+
+    public function getLogoUrl(): ?string
+    {
+        return $this->logoUrl;
+    }
+
+    public function setLogoUrl(?string $logoUrl): static
+    {
+        $this->logoUrl = $logoUrl;
         return $this;
     }
 }

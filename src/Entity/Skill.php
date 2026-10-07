@@ -8,9 +8,12 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\SkillRepository;
+use App\State\AssessmentSkillCreateProcessor;
+use App\State\ExamSkillCreateProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -43,6 +46,48 @@ use Symfony\Component\Validator\Constraints as Assert;
     ],
     paginationItemsPerPage: 30,
 )]
+#[ApiResource(
+    uriTemplate: '/exams/{examId}/skills',
+    operations: [
+        new GetCollection(
+            normalizationContext: ['groups' => ['skill:read']],
+        ),
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: ExamSkillCreateProcessor::class,
+            denormalizationContext: ['groups' => ['skill:write']],
+            normalizationContext: ['groups' => ['skill:read']],
+        ),
+    ],
+    uriVariables: [
+        'examId' => new Link(
+            fromProperty: 'skills',
+            fromClass: Exam::class,
+        ),
+    ],
+)]
+#[ApiResource(
+    uriTemplate: '/assessments/{assessmentId}/skills',
+    operations: [
+        new GetCollection(
+            normalizationContext: ['groups' => ['skill:read']],
+        ),
+        new Post(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            read: false,
+            processor: AssessmentSkillCreateProcessor::class,
+            denormalizationContext: ['groups' => ['skill:write']],
+            normalizationContext: ['groups' => ['skill:read']],
+        ),
+    ],
+    uriVariables: [
+        'assessmentId' => new Link(
+            fromProperty: 'skills',
+            fromClass: Assessment::class,
+        ),
+    ],
+)]
 #[ApiFilter(SearchFilter::class, properties: [
     'label' => 'partial',
 ])]
@@ -52,11 +97,11 @@ class Skill
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['skill:read'])]
+    #[Groups(['skill:read', 'exam:read', 'assessment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['skill:read', 'skill:write'])]
+    #[Groups(['skill:read', 'skill:write', 'exam:read', 'assessment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
@@ -123,4 +168,5 @@ class Skill
     {
         return $this->children;
     }
+
 }

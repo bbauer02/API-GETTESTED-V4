@@ -4,6 +4,8 @@ namespace App\Tests\Api;
 
 use App\DataFixtures\AssessmentFixtures;
 use App\DataFixtures\CountryFixtures;
+use App\DataFixtures\DocumentTypeFixtures;
+use App\DataFixtures\EnrollmentFixtures;
 use App\DataFixtures\ExamFixtures;
 use App\DataFixtures\InstituteFixtures;
 use App\DataFixtures\InvoiceFixtures;
@@ -29,6 +31,7 @@ trait ApiTestTrait
         $fixtures = [
             $container->get(LanguageFixtures::class),
             $container->get(CountryFixtures::class),
+            $container->get(DocumentTypeFixtures::class),
             $container->get(UserFixtures::class),
             $container->get(InstituteFixtures::class),
             $container->get(LevelFixtures::class),
@@ -36,6 +39,7 @@ trait ApiTestTrait
             $container->get(AssessmentFixtures::class),
             $container->get(ExamFixtures::class),
             $container->get(SessionFixtures::class),
+            $container->get(EnrollmentFixtures::class),
             $container->get(InvoiceFixtures::class),
         ];
 
@@ -58,6 +62,6 @@ trait ApiTestTrait
         ]));
 
         $data = json_decode($client->getResponse()->getContent(), true);
-        return $data['token'];
+        return $data['access_token'] ?? $data['token'];
     }
 }
