@@ -81,7 +81,9 @@ class AuthTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertArrayHasKey('token', $data);
+        // L'API renvoie access_token (renommé par JWTAuthenticationSuccessSubscriber) et refresh_token
+        $this->assertArrayHasKey('access_token', $data);
+        $this->assertArrayHasKey('refresh_token', $data);
     }
 
     public function testLoginInvalidCredentials(): void

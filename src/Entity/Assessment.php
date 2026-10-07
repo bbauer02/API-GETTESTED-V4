@@ -17,6 +17,7 @@ use App\State\InstituteAssessmentCreateProcessor;
 use App\State\InstituteAssessmentProvider;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\State\AssessmentDeleteProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
@@ -43,6 +44,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
         new Delete(
             security: "is_granted('ASSESSMENT_DELETE', object)",
+            processor: AssessmentDeleteProcessor::class,
         ),
     ],
     paginationItemsPerPage: 30,

@@ -2,7 +2,6 @@
 
 namespace App\Tests\Api;
 
-use App\DataFixtures\ExamFixtures;
 use App\DataFixtures\InstituteFixtures;
 use App\DataFixtures\UserFixtures;
 use App\Entity\Assessment;
@@ -36,7 +35,8 @@ class InstituteExamPricingTest extends WebTestCase
 
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
         $data = json_decode($client->getResponse()->getContent(), true);
-        $this->assertCount(1, $data);
+        // Fixtures : tarifs majorés pour TOEIC Listening et TOEIC Reading
+        $this->assertCount(2, $data);
     }
 
     public function testPostExamPricingAsInstituteAdmin(): void
@@ -91,13 +91,13 @@ class InstituteExamPricingTest extends WebTestCase
         $this->loadFixtures();
 
         // Ayaka est INSTITUTE_ADMIN de Institut Français
-        // Mais le TOEIC est un test interne sans ownership pour Institut Français → pas d'accès
+        // Institut Français n'est ni propriétaire ni acheteur du JLPT → pas d'accès
         $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
 
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
         $institute = $em->getRepository(Institute::class)->findOneBy(['label' => InstituteFixtures::INSTITUTE1_LABEL]);
-        $exam = $em->getRepository(Exam::class)->findOneBy(['label' => ExamFixtures::TOEIC_LISTENING_LABEL]);
+        $exam = $em->getRepository(Exam::class)->findOneBy(['label' => 'JLPT N3 - Compréhension écrite']);
 
         $client->request('POST', '/api/institutes/' . $institute->getId() . '/exam-pricings', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,

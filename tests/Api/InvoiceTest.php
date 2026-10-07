@@ -10,13 +10,23 @@ use App\Entity\Invoice;
 use App\Entity\Payment;
 use App\Enum\InvoiceStatusEnum;
 use App\Enum\PaymentStatusEnum;
+use App\Tests\Fixtures\InvoiceTestData;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
 class InvoiceTest extends WebTestCase
 {
-    use ApiTestTrait;
+    use ApiTestTrait {
+        loadFixtures as private loadBaseFixtures;
+    }
+
+    /** Fixtures communes + factures de test (absentes des fixtures de dev) */
+    private function loadFixtures(): void
+    {
+        $this->loadBaseFixtures();
+        InvoiceTestData::load(static::getContainer()->get(EntityManagerInterface::class));
+    }
 
     // ========================
     // POST /institutes/{id}/invoices — Création facture

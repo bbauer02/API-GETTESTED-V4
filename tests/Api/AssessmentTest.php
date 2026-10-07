@@ -147,7 +147,30 @@ class AssessmentTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
-    public function testDeleteAssessmentAsPlatformAdmin(): void
+    public function testDeleteUnusedAssessmentAsPlatformAdmin(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        // Test créé puis supprimé avant toute épreuve
+        $client->request('POST', '/api/assessments', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], json_encode(['label' => 'DELF', 'ref' => 'DELF', 'isInternal' => true]));
+        $id = json_decode($client->getResponse()->getContent(), true)['id'];
+
+        $client->request('DELETE', '/api/assessments/' . $id, [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+    }
+
+    public function testDeleteAssessmentWithExamsConflicts(): void
     {
         $client = static::createClient();
         $this->loadFixtures();
@@ -163,7 +186,9 @@ class AssessmentTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ]);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+        // Plus d'erreur 500 : un refus explicite, le test et ses épreuves restent en place
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
+        $this->assertStringContainsString('épreuve', json_decode($client->getResponse()->getContent(), true)['detail']);
     }
 
     public function testDeleteAssessmentAsInstituteAdminDenied(): void
