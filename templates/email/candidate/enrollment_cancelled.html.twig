@@ -1,0 +1,11 @@
+{% extends 'email/candidate/_layout.html.twig' %}
+
+{% block title %}Inscription annulée{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 16px 0;">Votre inscription à la session ci-dessous a été annulée.</p>
+    {% if refundedAmount > 0 %}
+        <p style="margin:0 0 16px 0;">Un remboursement de <strong>{{ refundedAmount|number_format }} €</strong> a été lancé sur votre moyen de paiement. Il apparaît généralement sous 5 à 10 jours ouvrés.</p>
+    {% endif %}
+    <p style="margin:0;">Vous pouvez vous inscrire à une autre session à tout moment : <a href="{{ searchUrl }}" style="color:#00a76f;">voir les sessions disponibles</a>.</p>
+{% endblock %}

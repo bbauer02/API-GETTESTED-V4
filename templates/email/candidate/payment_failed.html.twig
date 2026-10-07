@@ -1,0 +1,10 @@
+{% extends 'email/candidate/_layout.html.twig' %}
+
+{% block title %}Paiement non abouti{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 16px 0;">Votre paiement de {{ invoice.totalTTC|number_format }} € n'a pas pu être finalisé. Aucun montant n'a été débité.</p>
+    <p style="margin:0;">Votre inscription est conservée : vous pouvez relancer le paiement à tout moment depuis votre espace.</p>
+{% endblock %}
+
+{% block cta %}Relancer le paiement{% endblock %}

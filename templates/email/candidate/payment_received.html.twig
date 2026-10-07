@@ -1,0 +1,10 @@
+{% extends 'email/candidate/_layout.html.twig' %}
+
+{% block title %}Paiement reçu{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 16px 0;">Nous avons bien reçu votre paiement de <strong>{{ invoice.totalTTC|number_format }} €</strong>{% if invoice.number %} pour la facture {{ invoice.number }}{% endif %}. Votre place est confirmée.</p>
+    <p style="margin:0;">Votre facture et votre attestation de paiement sont téléchargeables depuis votre espace.</p>
+{% endblock %}
+
+{% block cta %}Voir mon inscription{% endblock %}

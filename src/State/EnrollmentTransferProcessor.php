@@ -12,6 +12,7 @@ use App\Enum\SessionStatusEnum;
 use App\Exception\ConflictHttpException;
 use App\Security\Voter\EnrollmentVoter;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Service\CandidateNotifier;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -29,6 +30,7 @@ class EnrollmentTransferProcessor implements ProcessorInterface
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly CandidateNotifier $candidateNotifier,
         private readonly Security $security,
     ) {
     }
@@ -119,9 +121,14 @@ class EnrollmentTransferProcessor implements ProcessorInterface
         foreach ($mapping as $pair) {
             $pair[0]->setScheduledExam($pair[1]);
         }
+        $previousSession = $source;
         $enrollment->setSession($target);
 
         $this->entityManager->flush();
+
+        if ($previousSession) {
+            $this->candidateNotifier->enrollmentTransferred($enrollment, $previousSession);
+        }
 
         return $enrollment;
     }

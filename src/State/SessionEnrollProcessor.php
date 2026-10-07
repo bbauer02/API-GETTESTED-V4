@@ -12,6 +12,7 @@ use App\Entity\User;
 use App\Enum\EnrollmentExamStatusEnum;
 use App\Enum\SessionStatusEnum;
 use App\Service\InvoiceService;
+use App\Service\CandidateNotifier;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\Exception\ConflictHttpException;
@@ -26,6 +27,7 @@ class SessionEnrollProcessor implements ProcessorInterface
         private readonly Security $security,
         private readonly InvoiceService $invoiceService,
         private readonly RequestStack $requestStack,
+        private readonly CandidateNotifier $candidateNotifier,
     ) {
     }
 
@@ -108,6 +110,8 @@ class SessionEnrollProcessor implements ProcessorInterface
 
         // 9. Rafraîchir l'enrollment pour que la collection invoices soit à jour en mémoire
         $this->entityManager->refresh($enrollment);
+
+        $this->candidateNotifier->enrollmentConfirmed($enrollment);
 
         return $enrollment;
     }

@@ -1,5 +1,13 @@
 twig:
     file_name_pattern: '*.twig'
+    # Les dates sont stockées en UTC ; les emails les affichent à l'heure française
+    date:
+        format: 'd/m/Y H:i'
+        timezone: 'Europe/Paris'
+    number_format:
+        decimals: 2
+        decimal_point: ','
+        thousands_separator: ' '
 
 when@test:
     twig:

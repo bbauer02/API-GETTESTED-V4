@@ -1,0 +1,18 @@
+{% extends 'email/candidate/_layout.html.twig' %}
+
+{% block title %}Inscription enregistrée{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 16px 0;">Votre inscription à la session ci-dessous est bien enregistrée.</p>
+    {% if toPay %}
+        <p style="margin:0 0 16px 0;padding:12px 16px;background:#fff5cc;border-radius:8px;">
+            <strong>Il reste à régler {{ invoice.totalTTC|number_format }} €</strong>{% if invoice.number %} (facture {{ invoice.number }}){% endif %}.
+            Votre place sera confirmée dès réception du paiement.
+        </p>
+    {% elseif invoice %}
+        <p style="margin:0 0 16px 0;">Montant : {{ invoice.totalTTC|number_format }} €{% if invoice.number %} — facture {{ invoice.number }}{% endif %}.</p>
+    {% endif %}
+    <p style="margin:0;">Vous recevrez votre convocation par email dès que l'institut aura validé la session.</p>
+{% endblock %}
+
+{% block cta %}{{ toPay ? 'Régler mon inscription' : 'Voir mon inscription' }}{% endblock %}

@@ -6,6 +6,8 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Session;
 use App\Service\RefundService;
+use App\Service\CandidateNotifier;
+use App\Service\DocumentAccessService;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -17,6 +19,8 @@ class SessionTransitionProcessor implements ProcessorInterface
         private readonly EntityManagerInterface $entityManager,
         private readonly WorkflowInterface $sessionLifecycleStateMachine,
         private readonly RefundService $refundService,
+        private readonly CandidateNotifier $candidateNotifier,
+        private readonly DocumentAccessService $documentAccessService,
     ) {
     }
 
@@ -72,11 +76,13 @@ class SessionTransitionProcessor implements ProcessorInterface
         }
 
         $refundErrors = [];
+        $refundedByEnrollment = [];
         if (in_array($transition, self::CANCEL_WITH_REFUND, true)) {
             // Rembourser chaque inscription (Stripe + avoir + factures annulées) avant l'annulation.
             // Une erreur Stripe est loggée et remontée dans refundErrors, mais ne bloque pas la transition.
             foreach ($session->getEnrollments() as $enrollment) {
                 $result = $this->refundService->refundEnrollment($enrollment, 'requested_by_customer');
+                $refundedByEnrollment[spl_object_id($enrollment)] = (float) $result['refundedAmount'];
                 foreach ($result['errors'] as $error) {
                     $refundErrors[] = $error;
                 }
@@ -88,6 +94,15 @@ class SessionTransitionProcessor implements ProcessorInterface
         $this->entityManager->flush();
 
         $session->setRefundErrors($refundErrors);
+
+        // Prévenir les candidats une fois la transition enregistrée
+        foreach ($session->getEnrollments() as $enrollment) {
+            if (in_array($transition, self::CANCEL_WITH_REFUND, true)) {
+                $this->candidateNotifier->sessionCancelled($enrollment, $refundedByEnrollment[spl_object_id($enrollment)] ?? 0.0);
+            } elseif ($transition === 'validate' && $this->documentAccessService->isConvocationAvailableFor($enrollment)) {
+                $this->candidateNotifier->convocationAvailable($enrollment);
+            }
+        }
 
         return $session;
     }

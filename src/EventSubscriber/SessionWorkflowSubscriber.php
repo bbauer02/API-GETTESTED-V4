@@ -25,7 +25,6 @@ class SessionWorkflowSubscriber implements EventSubscriberInterface
     {
         return [
             'workflow.session_lifecycle.guard.open' => 'guardOpen',
-            'workflow.session_lifecycle.guard.validate' => 'guardValidate',
             'workflow.session_lifecycle.guard.reopen' => 'guardReopen',
             'workflow.session_lifecycle.completed.open' => 'onOpen',
             'workflow.session_lifecycle.completed.validate' => 'onValidate',
@@ -33,30 +32,6 @@ class SessionWorkflowSubscriber implements EventSubscriberInterface
             'workflow.session_lifecycle.completed.cancel_from_open' => 'onCancel',
             'workflow.session_lifecycle.completed.cancel_from_locked' => 'onCancel',
         ];
-    }
-
-    /**
-     * LOCKED → VALIDATED : la session est validée une fois tenue, pas avant sa dernière épreuve.
-     */
-    public function guardValidate(GuardEvent $event): void
-    {
-        /** @var Session $session */
-        $session = $event->getSubject();
-
-        $lastStart = $session->getStart();
-        foreach ($session->getScheduledExams() as $scheduledExam) {
-            $start = $scheduledExam->getStartDate();
-            if ($start && ($lastStart === null || $start > $lastStart)) {
-                $lastStart = $start;
-            }
-        }
-
-        if ($lastStart !== null && $lastStart > new \DateTime()) {
-            $event->setBlocked(true, sprintf(
-                'La session ne peut être validée qu\'après sa dernière épreuve (le %s).',
-                $lastStart->format('d/m/Y à H:i')
-            ));
-        }
     }
 
     /**

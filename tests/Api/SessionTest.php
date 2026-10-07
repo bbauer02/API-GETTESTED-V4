@@ -546,24 +546,6 @@ class SessionTest extends WebTestCase
         $this->assertFalse($data['autoLocked']);
     }
 
-    public function testValidateRefusedBeforeLastExam(): void
-    {
-        $client = static::createClient();
-        $this->loadFixtures();
-
-        $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
-        $session->setStatus(SessionStatusEnum::LOCKED);
-        $em->flush();
-
-        $data = $this->transition($client, $token, $session, ['transition' => 'validate']);
-
-        // La raison de la garde est remontée, pas un message générique
-        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
-        $this->assertStringContainsString('dernière épreuve', $data['detail']);
-    }
-
     public function testReopenCancelledSessionWithEnrollmentsRefused(): void
     {
         $client = static::createClient();

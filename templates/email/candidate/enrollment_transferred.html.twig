@@ -1,0 +1,12 @@
+{% extends 'email/candidate/_layout.html.twig' %}
+
+{% block title %}Changement de session{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 16px 0;">
+        Votre inscription a été transférée de la session du
+        <strong>{{ previousSession.start ? previousSession.start|date('d/m/Y') : '—' }}</strong>
+        vers la session ci-dessous. Vos épreuves et votre paiement sont conservés.
+    </p>
+    <p style="margin:0;">Vérifiez les nouvelles dates et lieux de vos épreuves.</p>
+{% endblock %}

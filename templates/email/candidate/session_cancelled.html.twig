@@ -1,0 +1,11 @@
+{% extends 'email/candidate/_layout.html.twig' %}
+
+{% block title %}Session annulée{% endblock %}
+
+{% block content %}
+    <p style="margin:0 0 16px 0;">Nous sommes désolés : <strong>{{ session.institute }}</strong> a annulé la session à laquelle vous étiez inscrit(e).</p>
+    {% if refundedAmount > 0 %}
+        <p style="margin:0 0 16px 0;">Votre paiement de <strong>{{ refundedAmount|number_format }} €</strong> vous est intégralement remboursé. Le remboursement apparaît généralement sous 5 à 10 jours ouvrés.</p>
+    {% endif %}
+    <p style="margin:0;">D'autres sessions sont peut-être disponibles près de chez vous : <a href="{{ searchUrl }}" style="color:#00a76f;">rechercher une session</a>.</p>
+{% endblock %}

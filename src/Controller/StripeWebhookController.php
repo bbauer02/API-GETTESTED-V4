@@ -8,6 +8,7 @@ use App\Entity\StripeAccount;
 use App\Enum\InvoiceStatusEnum;
 use App\Enum\PaymentStatusEnum;
 use App\Service\InvoiceService;
+use App\Service\CandidateNotifier;
 use App\Service\StripeService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -22,6 +23,7 @@ class StripeWebhookController extends AbstractController
     public function __construct(
         private readonly StripeService $stripeService,
         private readonly InvoiceService $invoiceService,
+        private readonly CandidateNotifier $candidateNotifier,
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger,
     ) {
@@ -138,7 +140,9 @@ class StripeWebhookController extends AbstractController
         }
 
         // Une facture déjà payée (ex. confirmée par verify-payment) ne génère pas de seconde commission
+        $justPaid = false;
         if ($invoice->getStatus() !== InvoiceStatusEnum::PAID && $totalPaid >= $invoice->getTotalTTC()) {
+            $justPaid = true;
             $invoice->setStatus(InvoiceStatusEnum::PAID);
 
             // 3. Créer la facture de commission plateforme → institut
@@ -151,6 +155,10 @@ class StripeWebhookController extends AbstractController
         }
 
         $this->entityManager->flush();
+
+        if ($invoice->getStatus() === InvoiceStatusEnum::PAID && $justPaid) {
+            $this->candidateNotifier->paymentReceived($invoice);
+        }
 
         $this->logger->info('checkout.session.completed processed', [
             'invoiceId' => $invoiceId,
@@ -214,6 +222,10 @@ class StripeWebhookController extends AbstractController
 
         $payment->setStatus(PaymentStatusEnum::FAILED);
         $this->entityManager->flush();
+
+        if ($payment->getInvoice()) {
+            $this->candidateNotifier->paymentFailed($payment->getInvoice());
+        }
 
         $this->logger->info('Payment marked as failed', ['paymentId' => $paymentId]);
     }

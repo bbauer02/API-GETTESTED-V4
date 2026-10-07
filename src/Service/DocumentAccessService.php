@@ -52,6 +52,13 @@ class DocumentAccessService
         };
     }
 
+    public function isConvocationAvailableFor(EnrollmentSession $enrollment): bool
+    {
+        $session = $enrollment->getSession();
+
+        return $session !== null && $this->convocationAvailability($session, $enrollment)['available'];
+    }
+
     private function isAbsentEverywhere(?EnrollmentSession $enrollment): bool
     {
         if ($enrollment === null || $enrollment->getEnrollmentExams()->isEmpty()) {

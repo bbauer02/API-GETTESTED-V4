@@ -9,6 +9,7 @@ use App\Entity\User;
 use App\Enum\PlatformRoleEnum;
 use App\Enum\SessionStatusEnum;
 use App\Service\RefundService;
+use App\Service\CandidateNotifier;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\Exception\ConflictHttpException;
@@ -20,6 +21,7 @@ class EnrollmentCancelProcessor implements ProcessorInterface
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
         private readonly RefundService $refundService,
+        private readonly CandidateNotifier $candidateNotifier,
     ) {
     }
 
@@ -55,6 +57,8 @@ class EnrollmentCancelProcessor implements ProcessorInterface
                 'Le remboursement Stripe a échoué : l\'inscription est conservée. ' . implode(' ', $refund['errors'])
             );
         }
+
+        $this->candidateNotifier->enrollmentCancelled($enrollment, (float) $refund['refundedAmount']);
 
         // Supprimer les EnrollmentExam associés
         foreach ($enrollment->getEnrollmentExams() as $enrollmentExam) {

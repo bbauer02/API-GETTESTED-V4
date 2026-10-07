@@ -9,6 +9,7 @@ use App\Enum\InvoiceStatusEnum;
 use App\Enum\PaymentMethodEnum;
 use App\Enum\PaymentStatusEnum;
 use App\Service\InvoiceService;
+use App\Service\CandidateNotifier;
 use App\Service\StripeService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -26,6 +27,7 @@ class InvoiceCheckoutController extends AbstractController
     public function __construct(
         private readonly StripeService $stripeService,
         private readonly InvoiceService $invoiceService,
+        private readonly CandidateNotifier $candidateNotifier,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -216,6 +218,8 @@ class InvoiceCheckoutController extends AbstractController
             $conn->rollBack();
             throw $e;
         }
+
+        $this->candidateNotifier->paymentReceived($invoice);
 
         return new JsonResponse([
             'status' => 'paid',
