@@ -8,9 +8,11 @@ use App\Entity\CandidateResponse;
 use App\Entity\EnrollmentExam;
 use App\Entity\SubjectQuestion;
 use App\Enum\EnrollmentExamStatusEnum;
+use App\Service\ExamAccessService;
 use App\Service\ResponseGraderService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -21,6 +23,8 @@ class ExamAnswerProcessor implements ProcessorInterface
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
         private readonly ResponseGraderService $graderService,
+        private readonly ExamAccessService $examAccessService,
+        private readonly RequestStack $requestStack,
     ) {}
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): array
@@ -32,20 +36,17 @@ class ExamAnswerProcessor implements ProcessorInterface
             throw new NotFoundHttpException('EnrollmentExam introuvable.');
         }
 
-        // Verify candidate
-        $currentUser = $this->security->getUser();
-        $enrollmentSession = $enrollmentExam->getEnrollmentSession();
-        if (!$enrollmentSession || !$enrollmentSession->getUser()->getId()->equals($currentUser->getId())) {
-            throw new AccessDeniedHttpException('Vous n\'êtes pas inscrit à cet examen.');
-        }
-
-        if ($enrollmentExam->getStatus() !== EnrollmentExamStatusEnum::REGISTERED) {
-            throw new UnprocessableEntityHttpException('Cet examen est déjà terminé.');
-        }
+        // Candidat, épreuve démarrée et temps non écoulé
+        $this->examAccessService->assertCanAnswer($enrollmentExam, $this->security->getUser());
 
         // Extract answer data from request
         // Expected: {"subjectQuestionId": "uuid", "givenAnswer": {...}, "responseTimeMs": 12345}
-        $requestData = $data;
+        // deserialize: false : le corps de la requête est lu tel quel
+        try {
+            $requestData = $this->requestStack->getCurrentRequest()?->toArray() ?? [];
+        } catch (\Symfony\Component\HttpFoundation\Exception\JsonException) {
+            throw new UnprocessableEntityHttpException('Corps de requête JSON invalide.');
+        }
         $subjectQuestionId = $requestData['subjectQuestionId'] ?? null;
         $givenAnswer = $requestData['givenAnswer'] ?? [];
         $responseTimeMs = $requestData['responseTimeMs'] ?? 0;
@@ -58,6 +59,12 @@ class ExamAnswerProcessor implements ProcessorInterface
         $subjectQuestion = $this->entityManager->getRepository(SubjectQuestion::class)->find($subjectQuestionId);
         if (!$subjectQuestion) {
             throw new NotFoundHttpException('SubjectQuestion introuvable.');
+        }
+
+        // La question doit appartenir au sujet de cette épreuve
+        $examSubject = $enrollmentExam->getScheduledExam()?->getSubject();
+        if (!$examSubject || !$subjectQuestion->getSubject()?->getId()?->equals($examSubject->getId())) {
+            throw new UnprocessableEntityHttpException('Cette question ne fait pas partie de votre épreuve.');
         }
 
         $question = $subjectQuestion->getQuestion();

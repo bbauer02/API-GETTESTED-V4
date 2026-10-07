@@ -91,7 +91,7 @@ class DocumentAccessService
      * Une facture d'inscription émise mais non réglée bloque la convocation.
      * (Une inscription sans facture — saisie manuelle, gratuité — n'est pas bloquée.)
      */
-    private function hasUnpaidInvoice(EnrollmentSession $enrollment): bool
+    public function hasUnpaidInvoice(EnrollmentSession $enrollment): bool
     {
         foreach ($enrollment->getInvoices() as $invoice) {
             if ($invoice->getInvoiceType() === InvoiceTypeEnum::INVOICE
@@ -107,11 +107,17 @@ class DocumentAccessService
 
     private function attendanceAvailability(Session $session, \DateTimeInterface $now): array
     {
+        // Fin de la dernière épreuve : heure de début + durée de l'épreuve
         $lastStart = null;
         foreach ($session->getScheduledExams() as $scheduledExam) {
             $start = $scheduledExam->getStartDate();
-            if ($start && ($lastStart === null || $start > $lastStart)) {
-                $lastStart = $start;
+            if (!$start) {
+                continue;
+            }
+            $end = \DateTimeImmutable::createFromInterface($start)
+                ->modify(sprintf('+%d minutes', $scheduledExam->getExam()?->getDuration() ?? 0));
+            if ($lastStart === null || $end > $lastStart) {
+                $lastStart = $end;
             }
         }
 

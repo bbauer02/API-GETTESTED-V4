@@ -15,6 +15,22 @@ use App\Enum\CandidateResponseStatusEnum;
 
 class ResponseGraderService
 {
+    public function __construct(
+        #[\Symfony\Component\DependencyInjection\Attribute\Autowire('%kernel.secret%')]
+        private readonly string $secret,
+    ) {
+    }
+
+    /**
+     * Identifiant opaque d'un élément de droite d'une question d'appariement.
+     * Il dépend du secret de l'application et de l'épreuve (ou de l'entraînement) :
+     * le candidat ne peut pas en déduire à quel élément de gauche il correspond.
+     */
+    public function matchingToken(string $pairId, string $scopeId): string
+    {
+        return substr(hash_hmac('sha256', $pairId . '|' . $scopeId, $this->secret), 0, 24);
+    }
+
     /**
      * Grade a candidate's response and update the CandidateResponse entity.
      *
@@ -35,7 +51,7 @@ class ResponseGraderService
             $question instanceof FillBlankQuestion => $this->gradeFillBlank($question, $givenAnswer),
             $question instanceof HighlightQuestion => $this->gradeHighlight($question, $givenAnswer),
             $question instanceof OrderingQuestion => $this->gradeOrdering($question, $givenAnswer),
-            $question instanceof MatchingQuestion => $this->gradeMatching($question, $givenAnswer),
+            $question instanceof MatchingQuestion => $this->gradeMatching($question, $givenAnswer, $this->responseScope($response)),
             default => 0.0,
         };
 
@@ -257,35 +273,34 @@ class ResponseGraderService
     //
     // Score = correct matches / total pairs
 
-    private function gradeMatching(MatchingQuestion $question, array $givenAnswer): float
+    /**
+     * Réponse attendue : {"pairs": {"<id gauche>": "<jeton droite>"}}.
+     * L'id de gauche est l'id de la paire ; le jeton de droite vient de matchingToken().
+     */
+    private function gradeMatching(MatchingQuestion $question, array $givenAnswer, ?string $scopeId): float
     {
         $givenPairs = $givenAnswer['pairs'] ?? [];
         $pairs = $question->getMatchingPairs();
         $totalPairs = count($pairs);
 
-        if ($totalPairs === 0) {
+        if ($totalPairs === 0 || $scopeId === null) {
             return 0.0;
         }
 
         $correctCount = 0;
-
         foreach ($pairs as $pair) {
             $pairId = $pair->getId()->toRfc4122();
-            $position = (string) $pair->getPosition();
-
-            // Check by pair ID
-            if (isset($givenPairs[$pairId]) && $givenPairs[$pairId] === $pairId) {
-                $correctCount++;
-                continue;
-            }
-
-            // Check by position: the given pair maps left position to right position
-            // Correct = same position maps to same position
-            if (isset($givenPairs[$position]) && $givenPairs[$position] === $position) {
+            if (($givenPairs[$pairId] ?? null) === $this->matchingToken($pairId, $scopeId)) {
                 $correctCount++;
             }
         }
 
         return $correctCount / $totalPairs;
+    }
+
+    private function responseScope(CandidateResponse $response): ?string
+    {
+        return $response->getEnrollmentExam()?->getId()?->toRfc4122()
+            ?? $response->getPracticeSession()?->getId()?->toRfc4122();
     }
 }

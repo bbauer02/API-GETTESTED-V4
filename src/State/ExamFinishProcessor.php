@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\CandidateResponse;
 use App\Entity\EnrollmentExam;
 use App\Enum\EnrollmentExamStatusEnum;
+use App\Service\ExamAccessService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 class ExamFinishProcessor implements ProcessorInterface
 {
     public function __construct(
+        private readonly ExamAccessService $examAccessService,
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
     ) {}
@@ -29,15 +31,8 @@ class ExamFinishProcessor implements ProcessorInterface
             throw new NotFoundHttpException('EnrollmentExam introuvable.');
         }
 
-        $currentUser = $this->security->getUser();
-        $enrollmentSession = $enrollmentExam->getEnrollmentSession();
-        if (!$enrollmentSession || !$enrollmentSession->getUser()->getId()->equals($currentUser->getId())) {
-            throw new AccessDeniedHttpException('Vous n\'êtes pas inscrit à cet examen.');
-        }
-
-        if ($enrollmentExam->getStatus() !== EnrollmentExamStatusEnum::REGISTERED) {
-            throw new UnprocessableEntityHttpException('Cet examen est déjà terminé.');
-        }
+        // Le candidat peut terminer à tout moment (y compris après l'échéance : soumission automatique)
+        $this->examAccessService->assertCandidate($enrollmentExam, $this->security->getUser());
 
         // Get the subject via ScheduledExam -> Subject (OneToOne)
         $scheduledExam = $enrollmentExam->getScheduledExam();
@@ -126,8 +121,26 @@ class ExamFinishProcessor implements ProcessorInterface
 
         $this->entityManager->flush();
 
+        // Statistiques affichées au candidat (hors questions d'étalonnage)
+        $scoredQuestions = array_filter($subject->getSubjectQuestions()->toArray(), fn ($sq) => !$sq->isSeed());
+        $answered = $correct = 0;
+        foreach ($scoredQuestions as $sq) {
+            $response = $responseMap[$sq->getId()->toRfc4122()] ?? null;
+            if (!$response) {
+                continue;
+            }
+            $answered++;
+            if ($response->getScore() >= ($sq->getPointsOverride() ?? $sq->getQuestion()->getMaxPoints())) {
+                $correct++;
+            }
+        }
+
         return [
             'enrollmentExamId' => $enrollmentExam->getId()->toRfc4122(),
+            'totalQuestions' => count($scoredQuestions),
+            'answeredQuestions' => $answered,
+            'correctAnswers' => $correct,
+            'wrongAnswers' => $answered - $correct,
             'totalScore' => $totalScore,
             'maxScore' => $subject->getTotalMaxPoints(),
             'passingScore' => $passingScore,

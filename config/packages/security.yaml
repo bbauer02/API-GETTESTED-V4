@@ -25,6 +25,8 @@ security:
         token_refresh:
             pattern: ^/api/auth/token/refresh
             stateless: true
+            refresh_jwt:
+                check_path: /api/auth/token/refresh
         stripe_webhook:
             pattern: ^/api/webhooks/stripe
             stateless: true

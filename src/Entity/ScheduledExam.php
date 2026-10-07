@@ -214,6 +214,13 @@ class ScheduledExam
         return $this->subject;
     }
 
+    /** Épreuve passée en ligne : un sujet verrouillé lui est associé. */
+    #[Groups(['scheduled_exam:read', 'session:read', 'enrollment:read'])]
+    public function isOnline(): bool
+    {
+        return $this->subject !== null && $this->subject->getStatus() === \App\Enum\SubjectStatusEnum::LOCKED;
+    }
+
     public function setSubject(?Subject $subject): static
     {
         $this->subject = $subject;

@@ -14,6 +14,7 @@ use App\Entity\PracticeSession;
 use App\Entity\Question;
 use App\Enum\PracticeSessionStatusEnum;
 use App\Enum\QuestionStatusEnum;
+use App\Service\ResponseGraderService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -25,6 +26,7 @@ class PracticeNextQuestionProvider implements ProviderInterface
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
+        private readonly ResponseGraderService $graderService,
     ) {}
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
@@ -163,12 +165,12 @@ class PracticeNextQuestionProvider implements ProviderInterface
         }
 
         // Type-specific data WITHOUT answers
-        $data = array_merge($data, $this->getTypeData($question));
+        $data = array_merge($data, $this->getTypeData($question, $session->getId()->toRfc4122()));
 
         return $data;
     }
 
-    private function getTypeData(Question $question): array
+    private function getTypeData(Question $question, string $scopeId): array
     {
         if ($question instanceof MCQQuestion) {
             $choices = $question->getChoices()->toArray();
@@ -222,10 +224,12 @@ class PracticeNextQuestionProvider implements ProviderInterface
         if ($question instanceof MatchingQuestion) {
             $pairs = $question->getMatchingPairs()->toArray();
             $left = array_map(fn($p) => ['id' => $p->getId()->toRfc4122(), 'text' => $p->getLeftText()], $pairs);
-            $right = array_map(fn($p) => ['id' => $p->getId()->toRfc4122(), 'text' => $p->getRightText()], $pairs);
-            if ($question->isShuffleOnDisplay()) {
-                shuffle($right);
-            }
+            // Jetons opaques et ordre toujours mélangé : la colonne de droite ne révèle pas la solution
+            $right = array_map(fn($p) => [
+                'id' => $this->graderService->matchingToken($p->getId()->toRfc4122(), $scopeId),
+                'text' => $p->getRightText(),
+            ], $pairs);
+            shuffle($right);
 
             return ['leftItems' => $left, 'rightItems' => $right];
         }

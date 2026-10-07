@@ -14,6 +14,7 @@ use App\State\EnrollmentExamScoreProcessor;
 use App\State\ExamAnswerProcessor;
 use App\State\ExamFinishProcessor;
 use App\State\ExamStartProvider;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
@@ -99,6 +100,11 @@ class EnrollmentExam
     #[Groups(['enrollment_exam:read', 'enrollment_exam:score', 'enrollment:read', 'session:read'])]
     private EnrollmentExamStatusEnum $status = EnrollmentExamStatusEnum::REGISTERED;
 
+    /** Début de l'épreuve en ligne (chronomètre serveur). */
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['enrollment_exam:read', 'enrollment:read'])]
+    private ?\DateTimeInterface $startedAt = null;
+
     #[ORM\ManyToOne(targetEntity: EnrollmentSession::class, inversedBy: 'enrollmentExams')]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['enrollment_exam:read'])]
@@ -155,6 +161,24 @@ class EnrollmentExam
     public function setScheduledExam(?ScheduledExam $scheduledExam): static
     {
         $this->scheduledExam = $scheduledExam;
+        return $this;
+    }
+
+    /** Note maximale de l'épreuve en ligne (total des points du sujet), null sinon. */
+    #[Groups(['enrollment_exam:read', 'enrollment:read'])]
+    public function getMaxScore(): ?float
+    {
+        return $this->scheduledExam?->getSubject()?->getTotalMaxPoints();
+    }
+
+    public function getStartedAt(): ?\DateTimeInterface
+    {
+        return $this->startedAt;
+    }
+
+    public function setStartedAt(?\DateTimeInterface $startedAt): static
+    {
+        $this->startedAt = $startedAt;
         return $this;
     }
 }

@@ -5,6 +5,7 @@ namespace App\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use App\Entity\EnrollmentExam;
+use App\Entity\CandidateResponse;
 use App\Entity\FillBlankQuestion;
 use App\Entity\HighlightQuestion;
 use App\Entity\MatchingQuestion;
@@ -12,6 +13,8 @@ use App\Entity\MCQQuestion;
 use App\Entity\OrderingQuestion;
 use App\Enum\EnrollmentExamStatusEnum;
 use App\Enum\SubjectStatusEnum;
+use App\Service\ExamAccessService;
+use App\Service\ResponseGraderService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -23,6 +26,8 @@ class ExamStartProvider implements ProviderInterface
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
+        private readonly ExamAccessService $examAccessService,
+        private readonly ResponseGraderService $graderService,
     ) {}
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
@@ -34,30 +39,18 @@ class ExamStartProvider implements ProviderInterface
             throw new NotFoundHttpException('EnrollmentExam introuvable.');
         }
 
-        // Verify the current user is the enrolled candidate
-        $currentUser = $this->security->getUser();
-        $enrollmentSession = $enrollmentExam->getEnrollmentSession();
+        // Candidat, statut de session, paiement, créneau horaire : contrôlés par le serveur
+        $this->examAccessService->assertCanStart($enrollmentExam, $this->security->getUser());
 
-        if (!$enrollmentSession || !$enrollmentSession->getUser()->getId()->equals($currentUser->getId())) {
-            throw new AccessDeniedHttpException('Vous n\'êtes pas inscrit à cet examen.');
-        }
-
-        // Verify enrollment status
-        if ($enrollmentExam->getStatus() !== EnrollmentExamStatusEnum::REGISTERED) {
-            throw new UnprocessableEntityHttpException('Cet examen a déjà été passé.');
-        }
-
-        // Get the scheduled exam and its subject
         $scheduledExam = $enrollmentExam->getScheduledExam();
-        if (!$scheduledExam) {
-            throw new NotFoundHttpException('Examen planifié introuvable.');
+
+        // Premier démarrage : le chronomètre part maintenant (une reprise conserve l'heure initiale)
+        if ($enrollmentExam->getStartedAt() === null) {
+            $enrollmentExam->setStartedAt(new \DateTime());
+            $this->entityManager->flush();
         }
 
         $subject = $scheduledExam->getSubject();
-
-        if (!$subject || $subject->getStatus() !== SubjectStatusEnum::LOCKED) {
-            throw new UnprocessableEntityHttpException('Le sujet n\'est pas disponible pour cet examen.');
-        }
 
         // Build the response: questions in order, WITHOUT correct answers
         $questions = [];
@@ -88,29 +81,48 @@ class ExamStartProvider implements ProviderInterface
             }
 
             // Add type-specific data WITHOUT revealing answers
-            $questionData = array_merge($questionData, $this->getTypeSpecificData($question));
+            $questionData = array_merge($questionData, $this->getTypeSpecificData($question, $enrollmentExam->getId()->toRfc4122()));
 
             $questions[] = $questionData;
         }
+
+        // Réponses déjà enregistrées (reprise après un rechargement de page)
+        $savedAnswers = [];
+        $responses = $this->entityManager->getRepository(CandidateResponse::class)->findBy(['enrollmentExam' => $enrollmentExam]);
+        foreach ($responses as $response) {
+            $sqId = $response->getSubjectQuestion()?->getId()?->toRfc4122();
+            if ($sqId) {
+                $savedAnswers[$sqId] = $response->getGivenAnswer();
+            }
+        }
+
+        $deadline = $this->examAccessService->deadline($enrollmentExam);
 
         return [
             'enrollmentExamId' => $enrollmentExam->getId()->toRfc4122(),
             'subjectId' => $subject->getId()->toRfc4122(),
             'titre' => $subject->getTitre(),
+            'examName' => $scheduledExam->getExam()?->getLabel(),
+            'assessmentName' => $enrollmentExam->getEnrollmentSession()?->getSession()?->getAssessment()?->getLabel(),
             'totalMaxPoints' => $subject->getTotalMaxPoints(),
             'passingScore' => $subject->getPassingScore(),
+            'durationMinutes' => $this->examAccessService->durationMinutes($enrollmentExam),
+            'startedAt' => $enrollmentExam->getStartedAt()?->format(\DateTimeInterface::ATOM),
+            'endsAt' => $deadline?->format(\DateTimeInterface::ATOM),
+            'serverNow' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
+            'savedAnswers' => (object) $savedAnswers,
             'questions' => $questions,
         ];
     }
 
-    private function getTypeSpecificData($question): array
+    private function getTypeSpecificData($question, string $scopeId): array
     {
         return match (true) {
             $question instanceof MCQQuestion => $this->getMcqData($question),
             $question instanceof FillBlankQuestion => $this->getFillBlankData($question),
             $question instanceof HighlightQuestion => $this->getHighlightData($question),
             $question instanceof OrderingQuestion => $this->getOrderingData($question),
-            $question instanceof MatchingQuestion => $this->getMatchingData($question),
+            $question instanceof MatchingQuestion => $this->getMatchingData($question, $scopeId),
             default => [],
         };
     }
@@ -190,7 +202,7 @@ class ExamStartProvider implements ProviderInterface
         return ['items' => $result];
     }
 
-    private function getMatchingData(MatchingQuestion $question): array
+    private function getMatchingData(MatchingQuestion $question, string $scopeId): array
     {
         $pairs = $question->getMatchingPairs()->toArray();
 
@@ -203,15 +215,15 @@ class ExamStartProvider implements ProviderInterface
                 'id' => $pair->getId()->toRfc4122(),
                 'text' => $pair->getLeftText(),
             ];
+            // Jeton opaque : ne révèle pas l'élément de gauche correspondant
             $rightItems[] = [
-                'id' => $pair->getId()->toRfc4122(),
+                'id' => $this->graderService->matchingToken($pair->getId()->toRfc4122(), $scopeId),
                 'text' => $pair->getRightText(),
             ];
         }
 
-        if ($question->isShuffleOnDisplay()) {
-            shuffle($rightItems);
-        }
+        // Ordre toujours mélangé, sinon la position trahirait la solution
+        shuffle($rightItems);
 
         return [
             'leftItems' => $leftItems,
