@@ -14,10 +14,12 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Entity\Embeddable\Address;
 use App\Entity\Invoice;
+use App\Enum\InstituteStatusEnum;
 use App\Interface\ContactableInterface;
 use App\Repository\InstituteRepository;
 use App\State\InstituteCreateProcessor;
 use App\State\InstituteDeleteProcessor;
+use App\State\InstituteStatusProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -49,11 +51,22 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
             processor: InstituteDeleteProcessor::class,
         ),
+        // Validation / suspension / réactivation par la plateforme
+        new Patch(
+            uriTemplate: '/institutes/{id}/status',
+            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            denormalizationContext: ['groups' => ['institute:status']],
+            normalizationContext: ['groups' => ['institute:read']],
+            validationContext: ['groups' => ['institute:status']],
+            processor: InstituteStatusProcessor::class,
+            name: 'institute_status',
+        ),
     ],
     paginationItemsPerPage: 30,
 )]
 #[ApiFilter(SearchFilter::class, properties: [
     'label' => 'partial',
+    'status' => 'exact',
 ])]
 #[ApiFilter(TextSearchFilter::class, properties: ['label' => null, 'address.city' => null, 'siret' => null])]
 #[ApiFilter(OrderFilter::class, properties: ['label', 'address.city'], arguments: ['orderParameterName' => 'order'])]
@@ -71,6 +84,12 @@ class Institute implements ContactableInterface
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
+
+    /** Statut de validation par la plateforme (modifiable uniquement via PATCH /institutes/{id}/status). */
+    #[ORM\Column(length: 20, enumType: InstituteStatusEnum::class, options: ['default' => 'ACTIVE'])]
+    #[Groups(['institute:read', 'institute:status', 'user:read:self'])]
+    #[Assert\NotNull(groups: ['institute:status'])]
+    private InstituteStatusEnum $status = InstituteStatusEnum::ACTIVE;
 
     #[ORM\Column(length: 180, nullable: true)]
     #[Groups(['institute:read', 'institute:write', 'session:read'])]
@@ -191,6 +210,22 @@ class Institute implements ContactableInterface
     {
         $this->label = $label;
         return $this;
+    }
+
+    public function getStatus(): InstituteStatusEnum
+    {
+        return $this->status;
+    }
+
+    public function setStatus(InstituteStatusEnum $status): static
+    {
+        $this->status = $status;
+        return $this;
+    }
+
+    public function isValidated(): bool
+    {
+        return $this->status === InstituteStatusEnum::ACTIVE;
     }
 
     public function getEmail(): ?string

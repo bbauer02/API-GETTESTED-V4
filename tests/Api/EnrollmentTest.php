@@ -403,6 +403,38 @@ class EnrollmentTest extends WebTestCase
         ]);
 
         $this->assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        // L'inscription est conservée (historique), marquée annulée
+        $em->clear();
+        $cancelled = $em->getRepository(EnrollmentSession::class)->find($enrollment->getId());
+        $this->assertNotNull($cancelled);
+        $this->assertFalse($cancelled->isActive());
+        $this->assertNotNull($cancelled->getCancelledAt());
+        $this->assertNotEmpty($cancelled->getEnrollmentExams());
+
+        // Elle n'occupe plus de place et ne compte plus comme « inscrit »
+        $client->request('GET', '/api/sessions/' . $cancelled->getSession()->getId(), [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+        $session = json_decode($client->getResponse()->getContent(), true);
+        $this->assertFalse($session['isEnrolledByMe']);
+
+        // Reste visible dans l'historique du candidat
+        $client->request('GET', '/api/users/me/enrollments', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+        $mine = json_decode($client->getResponse()->getContent(), true);
+        $statuses = array_column($mine, 'status', 'id');
+        $this->assertSame('CANCELLED', $statuses[(string) $enrollment->getId()] ?? null);
+
+        // Une seconde annulation est refusée
+        $client->request('DELETE', '/api/enrollment-sessions/' . $enrollment->getId(), [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+        $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
     }
 
     public function testCancelEnrollmentAsNonOwnerForbidden(): void

@@ -61,8 +61,10 @@ class UploadInstituteImageController extends AbstractController
         // Delete old file
         $oldPath = $type === 'logo' ? $institute->getLogo() : $institute->getCoverImage();
         if ($oldPath) {
-            $fullOldPath = $this->getParameter('kernel.project_dir') . '/public' . $oldPath;
-            if (file_exists($fullOldPath)) {
+            // Seul un fichier du dossier des images d'institut peut être supprimé
+            $fullOldPath = realpath($this->getParameter('kernel.project_dir') . '/public' . $oldPath);
+            $imageDir = realpath($this->getParameter('kernel.project_dir') . '/public/uploads/institutes');
+            if ($fullOldPath && $imageDir && str_starts_with($fullOldPath, $imageDir . DIRECTORY_SEPARATOR) && is_file($fullOldPath)) {
                 unlink($fullOldPath);
             }
         }

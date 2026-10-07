@@ -21,6 +21,7 @@ class SessionNormalizer implements NormalizerInterface, NormalizerAwareInterface
 
     private const ALREADY_CALLED = 'SESSION_NORMALIZER_ALREADY_CALLED';
     private const PRIVATE_FIELDS = ['enrollments', 'refundErrors'];
+    private const PUBLIC_EXAMINATOR_FIELDS = ['@id', '@type', 'id', 'civility', 'firstname', 'lastname', 'avatar'];
 
     public function __construct(
         private readonly Security $security,
@@ -38,7 +39,7 @@ class SessionNormalizer implements NormalizerInterface, NormalizerAwareInterface
             return $normalized;
         }
 
-        $enrollments = $data->getEnrollments();
+        $enrollments = $data->getActiveEnrollments();
         $enrolledCount = $enrollments->count();
 
         $normalized['enrollmentsCount'] = $enrolledCount;
@@ -55,6 +56,26 @@ class SessionNormalizer implements NormalizerInterface, NormalizerAwareInterface
             foreach (self::PRIVATE_FIELDS as $field) {
                 unset($normalized[$field]);
             }
+
+            // Examinateurs : seule leur identité est publique (jamais email, téléphone, adresse, date de naissance…)
+            foreach ($normalized['scheduledExams'] ?? [] as $i => $scheduledExam) {
+                if (!is_array($scheduledExam) || !isset($scheduledExam['examinators']) || !is_array($scheduledExam['examinators'])) {
+                    continue;
+                }
+                $normalized['scheduledExams'][$i]['examinators'] = array_map(
+                    static fn ($examinator) => is_array($examinator)
+                        ? array_intersect_key($examinator, array_flip(self::PUBLIC_EXAMINATOR_FIELDS))
+                        : $examinator,
+                    $scheduledExam['examinators']
+                );
+            }
+        } elseif (isset($normalized['enrollments']) && is_array($normalized['enrollments'])) {
+            // Liste opérationnelle des inscrits : les inscriptions annulées restent consultables
+            // dans la liste des candidats de l'institut
+            $normalized['enrollments'] = array_values(array_filter(
+                $normalized['enrollments'],
+                static fn ($enrollment) => !is_array($enrollment) || ($enrollment['status'] ?? 'ACTIVE') !== 'CANCELLED'
+            ));
         }
 
         return $normalized;

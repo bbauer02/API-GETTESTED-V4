@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\EnrollmentExam;
 use App\Entity\EnrollmentSession;
+use App\Enum\EnrollmentStatusEnum;
 use App\Entity\ScheduledExam;
 use App\Entity\Session;
 use App\Entity\User;
@@ -49,7 +50,7 @@ class SessionEnrollProcessor implements ProcessorInterface
         $placesAvailable = $session->getPlacesAvailable();
         if ($placesAvailable !== null) {
             $enrollmentCount = $this->entityManager->getRepository(EnrollmentSession::class)
-                ->count(['session' => $session]);
+                ->count(['session' => $session, 'status' => EnrollmentStatusEnum::ACTIVE]);
             if ($enrollmentCount >= $placesAvailable) {
                 throw new ConflictHttpException('Plus de places disponibles pour cette session.');
             }
@@ -66,7 +67,7 @@ class SessionEnrollProcessor implements ProcessorInterface
 
         // 4. Vérifier que l'utilisateur n'est pas déjà inscrit
         $existingEnrollment = $this->entityManager->getRepository(EnrollmentSession::class)
-            ->findOneBy(['session' => $session, 'user' => $currentUser]);
+            ->findOneBy(['session' => $session, 'user' => $currentUser, 'status' => EnrollmentStatusEnum::ACTIVE]);
         if ($existingEnrollment) {
             throw new ConflictHttpException('Vous êtes déjà inscrit à cette session.');
         }

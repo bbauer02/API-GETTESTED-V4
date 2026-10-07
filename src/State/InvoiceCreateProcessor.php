@@ -69,6 +69,9 @@ class InvoiceCreateProcessor implements ProcessorInterface
 
         // Si enrollmentSession fourni : pré-remplir buyer + créer les lignes
         $enrollment = $invoice->getEnrollmentSession();
+        if ($enrollment && !$enrollment->getSession()?->getInstitute()?->getId()?->equals($institute->getId())) {
+            throw new AccessDeniedHttpException('Cette inscription n\'appartient pas à l\'institut.');
+        }
         if ($enrollment) {
             $enrolledUser = $enrollment->getUser();
             if ($enrolledUser) {

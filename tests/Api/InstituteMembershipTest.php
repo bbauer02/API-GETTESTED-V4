@@ -116,12 +116,12 @@ class InstituteMembershipTest extends WebTestCase
         $this->assertCount(2, $data);
     }
 
-    public function testGetMembershipsAsNonAdminMember(): void
+    public function testGetMembershipsAsCustomerDenied(): void
     {
         $client = static::createClient();
         $this->loadFixtures();
 
-        // Christophe (user2) est CUSTOMER de Tenri → membre non-ADMIN → doit pouvoir voir
+        // Christophe (user2) est CUSTOMER de Tenri : un candidat ne voit pas les coordonnées des membres
         $token = $this->getJwtToken(UserFixtures::USER2_EMAIL, UserFixtures::DEFAULT_PASSWORD);
 
         $container = static::getContainer();
@@ -133,10 +133,7 @@ class InstituteMembershipTest extends WebTestCase
             'HTTP_ACCEPT' => 'application/json',
         ]);
 
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-        $data = json_decode($client->getResponse()->getContent(), true);
-        // Tenri a 3 membres : Baptiste (CUSTOMER), Christophe (CUSTOMER), Didier (TEACHER)
-        $this->assertCount(3, $data);
+        $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
     }
 
     public function testGetMembershipsAsNonMemberDenied(): void

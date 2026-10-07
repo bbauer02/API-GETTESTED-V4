@@ -77,10 +77,12 @@ class SessionTransitionProcessor implements ProcessorInterface
 
         $refundErrors = [];
         $refundedByEnrollment = [];
+        // Inscrits concernés par la transition (les inscriptions déjà annulées sont ignorées)
+        $enrollments = $session->getActiveEnrollments()->toArray();
         if (in_array($transition, self::CANCEL_WITH_REFUND, true)) {
             // Rembourser chaque inscription (Stripe + avoir + factures annulées) avant l'annulation.
             // Une erreur Stripe est loggée et remontée dans refundErrors, mais ne bloque pas la transition.
-            foreach ($session->getEnrollments() as $enrollment) {
+            foreach ($enrollments as $enrollment) {
                 $result = $this->refundService->refundEnrollment($enrollment, 'requested_by_customer');
                 $refundedByEnrollment[spl_object_id($enrollment)] = (float) $result['refundedAmount'];
                 foreach ($result['errors'] as $error) {
@@ -91,12 +93,19 @@ class SessionTransitionProcessor implements ProcessorInterface
 
         $this->sessionLifecycleStateMachine->apply($session, $transition);
 
+        // Session annulée : les inscriptions remboursées sont annulées (conservées pour l'historique)
+        if (in_array($transition, self::CANCEL_WITH_REFUND, true)) {
+            foreach ($enrollments as $enrollment) {
+                $enrollment->cancel();
+            }
+        }
+
         $this->entityManager->flush();
 
         $session->setRefundErrors($refundErrors);
 
         // Prévenir les candidats une fois la transition enregistrée
-        foreach ($session->getEnrollments() as $enrollment) {
+        foreach ($enrollments as $enrollment) {
             if (in_array($transition, self::CANCEL_WITH_REFUND, true)) {
                 $this->candidateNotifier->sessionCancelled($enrollment, $refundedByEnrollment[spl_object_id($enrollment)] ?? 0.0);
             } elseif ($transition === 'validate' && $this->documentAccessService->isConvocationAvailableFor($enrollment)) {

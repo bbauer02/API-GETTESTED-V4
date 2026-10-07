@@ -13,12 +13,14 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use App\Dto\AdminUserInviteInput;
 use App\Entity\Embeddable\Address;
 use App\Enum\CivilityEnum;
 use App\Enum\GenderEnum;
 use App\Enum\PlatformRoleEnum;
 use App\Interface\ContactableInterface;
 use App\Repository\UserRepository;
+use App\State\AdminUserInviteProcessor;
 use App\State\UserMePatchProcessor;
 use App\State\UserMeProvider;
 use App\State\UserRegistrationProcessor;
@@ -74,6 +76,16 @@ use Symfony\Component\Validator\Constraints as Assert;
             processor: UserRegistrationProcessor::class,
             name: 'user_register',
         ),
+        // Création d'un compte par l'admin plateforme : invitation par email (définition du mot de passe)
+        new Post(
+            uriTemplate: '/admin/users/invite',
+            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            input: AdminUserInviteInput::class,
+            processor: AdminUserInviteProcessor::class,
+            normalizationContext: ['groups' => ['user:read:admin']],
+            read: false,
+            name: 'admin_user_invite',
+        ),
         new Patch(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
             denormalizationContext: ['groups' => ['user:write:admin', 'user:write:self']],
@@ -119,7 +131,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Contact
     private ?string $password = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'user:write:self', 'membership:read', 'scheduled_exam:read', 'session:read', 'enrollment:read'])]
+    #[Groups(['user:read:self', 'user:read:admin', 'user:read:public', 'membership:read', 'scheduled_exam:read', 'session:read', 'enrollment:read'])]
     private ?string $avatar = null;
 
     #[ORM\Column(enumType: CivilityEnum::class)]

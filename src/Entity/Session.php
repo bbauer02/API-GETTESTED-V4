@@ -311,6 +311,12 @@ class Session
         return $this->enrollments;
     }
 
+    /** @return Collection<int, EnrollmentSession> inscriptions non annulées */
+    public function getActiveEnrollments(): Collection
+    {
+        return $this->enrollments->filter(fn (EnrollmentSession $enrollment) => $enrollment->isActive());
+    }
+
     public function getDeletedAt(): ?\DateTimeInterface
     {
         return $this->deletedAt;

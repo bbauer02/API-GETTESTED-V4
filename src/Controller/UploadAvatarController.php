@@ -64,8 +64,10 @@ class UploadAvatarController extends AbstractController
         // Delete old avatar file if it exists
         $oldAvatar = $user->getAvatar();
         if ($oldAvatar) {
-            $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $oldAvatar;
-            if (file_exists($oldPath)) {
+            // Seul un fichier du dossier des avatars peut être supprimé (jamais un chemin arbitraire)
+            $oldPath = realpath($this->getParameter('kernel.project_dir') . '/public' . $oldAvatar);
+            $avatarDir = realpath($this->getParameter('kernel.project_dir') . '/public/uploads/avatars');
+            if ($oldPath && $avatarDir && str_starts_with($oldPath, $avatarDir . DIRECTORY_SEPARATOR) && is_file($oldPath)) {
                 unlink($oldPath);
             }
         }

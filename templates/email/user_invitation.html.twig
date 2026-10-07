@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Invitation à rejoindre GETTESTED</title>
+</head>
+<body style="font-family:Arial,Helvetica,sans-serif;color:#1c252e;line-height:1.6;">
+    <p>Bonjour {{ user.firstname }},</p>
+    <p>{{ inviter.firstname }} {{ inviter.lastname }} vous a créé un compte sur <strong>GETTESTED</strong>{% if isAdmin %} avec les droits d'administrateur de la plateforme{% endif %}.</p>
+    <p>Pour activer votre compte, définissez votre mot de passe en cliquant sur le lien ci-dessous :</p>
+    <p><a href="{{ link }}">Définir mon mot de passe</a></p>
+    <p>Ou copiez ce lien dans votre navigateur :<br>{{ link }}</p>
+    <p>Ce lien expire dans 7 jours.</p>
+    <p>Si vous n'attendiez pas cette invitation, ignorez cet email.</p>
+    <p>Cordialement,<br>L'équipe GETTESTED</p>
+</body>
+</html>

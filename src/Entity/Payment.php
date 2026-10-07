@@ -68,7 +68,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     uriTemplate: '/invoices/{invoiceId}/payments',
     operations: [
         new GetCollection(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            security: "is_granted('INVOICE_VIEW_ID', request.attributes.get('invoiceId'))",
             normalizationContext: ['groups' => ['payment:read']],
         ),
         new Post(
@@ -119,7 +119,8 @@ class Payment
     private ?PaymentMethodEnum $paymentMethod = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['payment:read', 'payment:write'])]
+    // Renseigné uniquement par le serveur (checkout / webhook Stripe) : sert aux remboursements
+    #[Groups(['payment:read'])]
     private ?string $stripePaymentIntentId = null;
 
     #[ORM\ManyToOne(targetEntity: Payment::class)]

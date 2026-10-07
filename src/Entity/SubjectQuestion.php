@@ -21,6 +21,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     uriTemplate: '/subjects/{subjectId}/questions',
     operations: [
         new GetCollection(
+            security: "is_granted('SUBJECT_VIEW', request.attributes.get('subjectId'))",
             normalizationContext: ['groups' => ['subject:read']],
         ),
         new Post(
@@ -41,6 +42,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new Get(
+            security: "is_granted('SUBJECT_VIEW', object.getSubject())",
             normalizationContext: ['groups' => ['subject:read']],
         ),
         new Patch(

@@ -13,7 +13,9 @@ use App\Entity\MCQQuestion;
 use App\Entity\OrderingQuestion;
 use App\Enum\EnrollmentExamStatusEnum;
 use App\Enum\SubjectStatusEnum;
+use App\Exception\ConflictHttpException;
 use App\Service\ExamAccessService;
+use App\Service\ExamFinisher;
 use App\Service\ResponseGraderService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -28,6 +30,7 @@ class ExamStartProvider implements ProviderInterface
         private readonly Security $security,
         private readonly ExamAccessService $examAccessService,
         private readonly ResponseGraderService $graderService,
+        private readonly ExamFinisher $examFinisher,
     ) {}
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
@@ -37,6 +40,14 @@ class ExamStartProvider implements ProviderInterface
 
         if (!$enrollmentExam) {
             throw new NotFoundHttpException('EnrollmentExam introuvable.');
+        }
+
+        // Épreuve commencée puis abandonnée : temps écoulé, elle est notée avec les réponses enregistrées
+        if ($enrollmentExam->getStartedAt() !== null && $this->examAccessService->isExpired($enrollmentExam)) {
+            $this->examAccessService->assertCandidate($enrollmentExam, $this->security->getUser());
+            $this->examFinisher->finish($enrollmentExam);
+
+            throw new ConflictHttpException('Le temps de l\'épreuve est écoulé : elle a été notée avec les réponses enregistrées.');
         }
 
         // Candidat, statut de session, paiement, créneau horaire : contrôlés par le serveur

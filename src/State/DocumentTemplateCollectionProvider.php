@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use App\Entity\DocumentTemplate;
 use App\Entity\EnrollmentSession;
+use App\Enum\EnrollmentStatusEnum;
 use App\Entity\Institute;
 use App\Entity\User;
 use App\Enum\PlatformRoleEnum;
@@ -63,6 +64,8 @@ class DocumentTemplateCollectionProvider implements ProviderInterface
             ->join('es.session', 's')
             ->where('es.user = :user')
             ->andWhere('s.institute = :institute')
+            ->andWhere('es.status = :active')
+            ->setParameter('active', EnrollmentStatusEnum::ACTIVE)
             ->setParameter('user', $user)
             ->setParameter('institute', $institute)
             ->setMaxResults(1)

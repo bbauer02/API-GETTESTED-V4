@@ -7,6 +7,7 @@ use ApiPlatform\State\ProviderInterface;
 use App\Entity\EnrollmentSession;
 use App\Entity\Session;
 use App\Entity\User;
+use App\Enum\EnrollmentStatusEnum;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,7 +37,7 @@ class SessionEnrollmentProvider implements ProviderInterface
         // platformAdmin ou institute ADMIN/STAFF : voit tous les enrollments
         if ($this->canViewAll($currentUser, $session)) {
             return $this->entityManager->getRepository(EnrollmentSession::class)
-                ->findBy(['session' => $session]);
+                ->findBy(['session' => $session, 'status' => EnrollmentStatusEnum::ACTIVE]);
         }
 
         // user standard : ne voit que son propre enrollment

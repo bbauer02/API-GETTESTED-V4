@@ -40,7 +40,7 @@ class SessionCancelPreviewController extends AbstractController
         $invoicesToCancel = 0;
         $currency = 'EUR';
 
-        foreach ($session->getEnrollments() as $enrollment) {
+        foreach ($session->getActiveEnrollments() as $enrollment) {
             $enrollmentCount++;
             $paid = false;
 

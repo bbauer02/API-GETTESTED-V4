@@ -35,7 +35,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     uriTemplate: '/invoices/{invoiceId}/lines',
     operations: [
         new GetCollection(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            security: "is_granted('INVOICE_VIEW_ID', request.attributes.get('invoiceId'))",
             normalizationContext: ['groups' => ['invoice_line:read']],
         ),
         new Post(

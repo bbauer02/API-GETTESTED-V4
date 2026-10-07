@@ -67,7 +67,7 @@ class SessionsSendRemindersCommand extends Command
 
         $sent = 0;
         foreach ($sessions as $session) {
-            foreach ($session->getEnrollments() as $enrollment) {
+            foreach ($session->getActiveEnrollments() as $enrollment) {
                 $io->writeln(sprintf(
                     '%s rappel → %s (session %s du %s)',
                     $dryRun ? '[dry-run]' : '',

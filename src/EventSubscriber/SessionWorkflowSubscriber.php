@@ -4,6 +4,7 @@ namespace App\EventSubscriber;
 
 use App\Entity\Session;
 use App\Entity\SessionDocumentPublication;
+use App\Enum\InstituteStatusEnum;
 use App\Repository\DocumentTypeRepository;
 use App\Repository\SessionDocumentPublicationRepository;
 use App\Service\DocumentAccessService;
@@ -55,6 +56,11 @@ class SessionWorkflowSubscriber implements EventSubscriberInterface
         $institute = $session->getInstitute();
         if (!$institute) {
             $event->setBlocked(true, 'La session doit être associée à un institut.');
+            return;
+        }
+
+        if ($institute->getStatus() !== InstituteStatusEnum::ACTIVE) {
+            $event->setBlocked(true, 'L\'institut doit être validé par la plateforme.');
             return;
         }
 

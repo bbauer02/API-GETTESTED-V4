@@ -30,6 +30,10 @@ class EnrollmentCancelProcessor implements ProcessorInterface
         /** @var EnrollmentSession $enrollment */
         $enrollment = $data;
 
+        if (!$enrollment->isActive()) {
+            throw new ConflictHttpException('Cette inscription est déjà annulée.');
+        }
+
         $session = $enrollment->getSession();
         /** @var User $currentUser */
         $currentUser = $this->security->getUser();
@@ -47,8 +51,7 @@ class EnrollmentCancelProcessor implements ProcessorInterface
             throw new UnprocessableEntityHttpException('La date limite d\'inscription est dépassée.');
         }
 
-        // Remboursement Stripe + avoir + annulation des factures (les factures restent en base,
-        // la FK enrollment_session_id passe à NULL à la suppression de l'inscription)
+        // Remboursement Stripe + avoir + annulation des factures
         $refund = $this->refundService->refundEnrollment($enrollment, 'requested_by_customer');
 
         // Ne jamais supprimer une inscription dont le paiement n'a pas pu être remboursé
@@ -60,13 +63,8 @@ class EnrollmentCancelProcessor implements ProcessorInterface
 
         $this->candidateNotifier->enrollmentCancelled($enrollment, (float) $refund['refundedAmount']);
 
-        // Supprimer les EnrollmentExam associés
-        foreach ($enrollment->getEnrollmentExams() as $enrollmentExam) {
-            $this->entityManager->remove($enrollmentExam);
-        }
-
-        // Supprimer l'EnrollmentSession
-        $this->entityManager->remove($enrollment);
+        // L'inscription est conservée (historique, factures, avoir) mais ne compte plus
+        $enrollment->cancel();
         $this->entityManager->flush();
 
         return null;

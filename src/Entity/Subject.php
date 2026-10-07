@@ -27,6 +27,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     operations: [
         new Get(
+            security: "is_granted('SUBJECT_VIEW', object)",
             normalizationContext: ['groups' => ['subject:read']],
         ),
         new Patch(
@@ -50,6 +51,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     uriTemplate: '/scheduled-exams/{scheduledExamId}/subject',
     operations: [
         new Get(
+            security: "is_granted('SUBJECT_VIEW', object)",
             normalizationContext: ['groups' => ['subject:read']],
         ),
     ],

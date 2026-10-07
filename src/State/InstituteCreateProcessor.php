@@ -9,10 +9,21 @@ use App\Entity\Institute;
 use App\Entity\InstituteMembership;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
+use App\Enum\InstituteStatusEnum;
+use App\Enum\PlatformRoleEnum;
 use App\Repository\DocumentTemplateRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 
+/**
+ * POST /api/institutes
+ *
+ * - Utilisateur ordinaire : l'institut est créé en attente de validation (PENDING_REVIEW)
+ *   et le créateur en devient administrateur.
+ * - Admin plateforme : l'institut est directement ACTIVE et l'admin plateforme n'en devient
+ *   PAS membre ; l'administrateur de l'institut est ensuite désigné par invitation
+ *   (POST /api/institutes/{id}/memberships/invite, rôle ADMIN).
+ */
 class InstituteCreateProcessor implements ProcessorInterface
 {
     public function __construct(
@@ -27,18 +38,23 @@ class InstituteCreateProcessor implements ProcessorInterface
         /** @var Institute $institute */
         $institute = $data;
 
-        $this->entityManager->persist($institute);
-
         /** @var User $currentUser */
         $currentUser = $this->security->getUser();
+        $isPlatformAdmin = $currentUser->getPlatformRole() === PlatformRoleEnum::ADMIN;
 
-        $membership = new InstituteMembership();
-        $membership->setInstitute($institute);
-        $membership->setUser($currentUser);
-        $membership->setRole(InstituteRoleEnum::ADMIN);
-        $membership->setSince(new \DateTime());
+        $institute->setStatus($isPlatformAdmin ? InstituteStatusEnum::ACTIVE : InstituteStatusEnum::PENDING_REVIEW);
 
-        $this->entityManager->persist($membership);
+        $this->entityManager->persist($institute);
+
+        if (!$isPlatformAdmin) {
+            $membership = new InstituteMembership();
+            $membership->setInstitute($institute);
+            $membership->setUser($currentUser);
+            $membership->setRole(InstituteRoleEnum::ADMIN);
+            $membership->setSince(new \DateTime());
+
+            $this->entityManager->persist($membership);
+        }
 
         // Copy master templates (institute_id = NULL) to the new institute
         $masterTemplates = $this->documentTemplateRepository->findBy(['institute' => null]);

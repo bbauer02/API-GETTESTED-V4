@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Assessment;
 use App\Entity\EnrollmentSession;
+use App\Enum\EnrollmentStatusEnum;
 use App\Entity\Institute;
 use App\Entity\Session;
 use App\Enum\SessionStatusEnum;
@@ -42,6 +43,8 @@ class PublicStatsController extends AbstractController
             ->select('COUNT(DISTINCT u.id)')
             ->from(EnrollmentSession::class, 'e')
             ->join('e.user', 'u')
+            ->where('e.status = :active')
+            ->setParameter('active', EnrollmentStatusEnum::ACTIVE)
             ->getQuery()
             ->getSingleScalarResult();
 

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ reactivated ? 'Institut réactivé' : 'Institut validé' }}</title>
+</head>
+<body style="font-family:Arial,Helvetica,sans-serif;color:#1c252e;line-height:1.6;">
+    <p>Bonjour{% if firstname %} {{ firstname }}{% endif %},</p>
+    {% if reactivated %}
+        <p>Votre institut <strong>{{ institute.label }}</strong> a été <strong>réactivé</strong> par la plateforme GETTESTED.</p>
+    {% else %}
+        <p>Bonne nouvelle : votre institut <strong>{{ institute.label }}</strong> a été <strong>validé</strong> par la plateforme GETTESTED.</p>
+    {% endif %}
+    <p>Vous pouvez désormais ouvrir vos sessions aux inscriptions (un compte Stripe activé reste nécessaire pour encaisser les paiements).</p>
+    <p><a href="{{ link }}">Accéder à mon espace institut</a></p>
+    <p>Cordialement,<br>L'équipe GETTESTED</p>
+</body>
+</html>

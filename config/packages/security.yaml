@@ -25,6 +25,8 @@ security:
         token_refresh:
             pattern: ^/api/auth/token/refresh
             stateless: true
+            # Un compte désactivé ne peut pas renouveler son jeton
+            user_checker: App\Security\UserChecker
             refresh_jwt:
                 check_path: /api/auth/token/refresh
         stripe_webhook:
@@ -34,6 +36,8 @@ security:
         api:
             pattern: ^/api/
             stateless: true
+            # Un compte désactivé perd l'accès immédiatement, même avec un jeton encore valide
+            user_checker: App\Security\UserChecker
             jwt: ~
 
     access_control:

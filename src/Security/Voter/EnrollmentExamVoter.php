@@ -57,6 +57,11 @@ class EnrollmentExamVoter extends Voter
 
     private function canScore(User $user, EnrollmentExam $enrollmentExam): bool
     {
+        // Pas de note pour une inscription annulée
+        if ($enrollmentExam->getEnrollmentSession()?->isActive() === false) {
+            return false;
+        }
+
         if ($user->getPlatformRole() === PlatformRoleEnum::ADMIN) {
             return true;
         }

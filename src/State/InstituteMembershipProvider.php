@@ -48,8 +48,12 @@ class InstituteMembershipProvider implements ProviderInterface
             return true;
         }
 
+        // Personnel actif uniquement : un candidat (CUSTOMER) ne voit pas les coordonnées des autres membres
         foreach ($institute->getMemberships() as $membership) {
-            if ($membership->getUser()?->getId()?->equals($user->getId())) {
+            if ($membership->getUser()?->getId()?->equals($user->getId())
+                && $membership->isActive()
+                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF, InstituteRoleEnum::TEACHER], true)
+            ) {
                 return true;
             }
         }

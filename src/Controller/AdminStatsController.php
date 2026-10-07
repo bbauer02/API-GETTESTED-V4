@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\EnrollmentSession;
+use App\Enum\EnrollmentStatusEnum;
 use App\Entity\Institute;
 use App\Entity\Invoice;
 use App\Entity\Session;
@@ -68,7 +69,7 @@ class AdminStatsController extends AbstractController
             'institutes' => $this->count(Institute::class),
             'sessions' => array_sum($sessionsByStatus),
             'sessionsByStatus' => (object) $sessionsByStatus,
-            'enrollments' => $this->count(EnrollmentSession::class),
+            'enrollments' => (int) $this->entityManager->getRepository(EnrollmentSession::class)->count(['status' => EnrollmentStatusEnum::ACTIVE]),
             'invoices' => array_sum(array_column($invoicesByStatus, 'count')),
             'invoicesByStatus' => (object) $invoicesByStatus,
             'commissionsHT' => round($commissions, 2),

@@ -102,7 +102,7 @@ class CandidateDocumentsController extends AbstractController
 
         $force = filter_var($request->query->get('force', false), FILTER_VALIDATE_BOOLEAN);
 
-        $enrollments = $session->getEnrollments()->toArray();
+        $enrollments = array_values($session->getActiveEnrollments()->toArray());
         $idsParam = trim((string) $request->query->get('enrollmentIds', ''));
         if ($idsParam !== '') {
             $wanted = array_filter(array_map('trim', explode(',', $idsParam)));

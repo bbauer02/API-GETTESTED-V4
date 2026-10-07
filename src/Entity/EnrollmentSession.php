@@ -9,6 +9,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Dto\EnrollmentTransferInput;
+use App\Enum\EnrollmentStatusEnum;
 use App\Repository\EnrollmentSessionRepository;
 use App\State\EnrollmentCancelProcessor;
 use ApiPlatform\Metadata\Link;
@@ -98,6 +99,15 @@ class EnrollmentSession
     #[Assert\NotBlank]
     private ?\DateTimeInterface $registrationDate = null;
 
+    /** Une inscription annulée est conservée (historique, factures, avoirs) mais ne compte plus. */
+    #[ORM\Column(length: 20, enumType: EnrollmentStatusEnum::class, options: ['default' => 'ACTIVE'])]
+    #[Groups(['enrollment:read', 'session:read'])]
+    private EnrollmentStatusEnum $status = EnrollmentStatusEnum::ACTIVE;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    #[Groups(['enrollment:read', 'session:read'])]
+    private ?\DateTimeInterface $cancelledAt = null;
+
     #[ORM\Column(type: 'text', nullable: true)]
     #[Groups(['enrollment:read', 'enrollment:update', 'session:read'])]
     private ?string $information = null;
@@ -154,6 +164,28 @@ class EnrollmentSession
     public function setRegistrationDate(\DateTimeInterface $registrationDate): static
     {
         $this->registrationDate = $registrationDate;
+        return $this;
+    }
+
+    public function getStatus(): EnrollmentStatusEnum
+    {
+        return $this->status;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === EnrollmentStatusEnum::ACTIVE;
+    }
+
+    public function getCancelledAt(): ?\DateTimeInterface
+    {
+        return $this->cancelledAt;
+    }
+
+    public function cancel(\DateTimeInterface $at = new \DateTime()): static
+    {
+        $this->status = EnrollmentStatusEnum::CANCELLED;
+        $this->cancelledAt = $at;
         return $this;
     }
 

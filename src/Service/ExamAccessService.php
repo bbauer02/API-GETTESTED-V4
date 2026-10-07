@@ -35,6 +35,10 @@ class ExamAccessService
             throw new AccessDeniedHttpException('Vous n\'êtes pas inscrit à cette épreuve.');
         }
 
+        if (!$enrollment->isActive()) {
+            throw new ConflictHttpException('Votre inscription à cette session est annulée.');
+        }
+
         if ($enrollmentExam->getStatus() !== EnrollmentExamStatusEnum::REGISTERED) {
             throw new ConflictHttpException('Cette épreuve est terminée.');
         }
@@ -129,7 +133,7 @@ class ExamAccessService
     }
 
     /** Fin du créneau de démarrage : heure de l'épreuve + durée. */
-    private function windowClosesAt(EnrollmentExam $enrollmentExam): ?\DateTimeInterface
+    public function windowClosesAt(EnrollmentExam $enrollmentExam): ?\DateTimeInterface
     {
         $opensAt = $enrollmentExam->getScheduledExam()?->getStartDate();
         $duration = $this->durationMinutes($enrollmentExam);

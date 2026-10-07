@@ -41,6 +41,10 @@ class DocumentAccessService
             return $this->result(false, 'La session est annulée.');
         }
 
+        if ($enrollment !== null && !$enrollment->isActive()) {
+            return $this->result(false, 'L\'inscription est annulée.');
+        }
+
         return match ($documentType->getCode()) {
             self::REGISTRATION_CONFIRMATION, self::REGISTRATION_CERTIFICATE => $this->result(true),
             self::CONVOCATION => $this->convocationAvailability($session, $enrollment),

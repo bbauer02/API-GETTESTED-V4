@@ -34,10 +34,13 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 #[ApiResource(
     operations: [
+        // Questions et corrigés : personnel des instituts concernés uniquement (QuestionAccessExtension)
         new GetCollection(
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
             normalizationContext: ['groups' => ['question:read']],
         ),
         new Get(
+            security: "is_granted('QUESTION_VIEW', object)",
             normalizationContext: ['groups' => ['question:read']],
         ),
         new Patch(

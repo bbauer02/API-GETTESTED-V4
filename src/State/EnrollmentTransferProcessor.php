@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Dto\EnrollmentTransferInput;
 use App\Entity\EnrollmentSession;
+use App\Enum\EnrollmentStatusEnum;
 use App\Entity\ScheduledExam;
 use App\Entity\Session;
 use App\Enum\SessionStatusEnum;
@@ -45,6 +46,10 @@ class EnrollmentTransferProcessor implements ProcessorInterface
             throw new NotFoundHttpException('Inscription introuvable.');
         }
 
+        if (!$enrollment->isActive()) {
+            throw new ConflictHttpException('Une inscription annulée ne peut pas être transférée.');
+        }
+
         if (!$this->security->isGranted(EnrollmentVoter::ENROLLMENT_MANAGE, $enrollment)) {
             throw new AccessDeniedHttpException("Vous n'avez pas les droits pour transférer cette inscription.");
         }
@@ -77,14 +82,14 @@ class EnrollmentTransferProcessor implements ProcessorInterface
 
         $placesAvailable = $target->getPlacesAvailable();
         if ($placesAvailable !== null) {
-            $count = $this->entityManager->getRepository(EnrollmentSession::class)->count(['session' => $target]);
+            $count = $this->entityManager->getRepository(EnrollmentSession::class)->count(['session' => $target, 'status' => EnrollmentStatusEnum::ACTIVE]);
             if ($count >= $placesAvailable) {
                 throw new ConflictHttpException('Plus de places disponibles dans la session cible.');
             }
         }
 
         $existing = $this->entityManager->getRepository(EnrollmentSession::class)
-            ->findOneBy(['session' => $target, 'user' => $enrollment->getUser()]);
+            ->findOneBy(['session' => $target, 'user' => $enrollment->getUser(), 'status' => EnrollmentStatusEnum::ACTIVE]);
         if ($existing) {
             throw new ConflictHttpException('Le candidat est déjà inscrit à la session cible.');
         }
