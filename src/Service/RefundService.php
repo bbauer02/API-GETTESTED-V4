@@ -24,6 +24,7 @@ class RefundService
         private readonly EntityManagerInterface $entityManager,
         private readonly StripeService $stripeService,
         private readonly LoggerInterface $logger,
+        private readonly InvoiceNumberGenerator $invoiceNumberGenerator,
     ) {
     }
 
@@ -186,7 +187,7 @@ class RefundService
             // Verrou pessimiste pour numérotation séquentielle
             $conn->executeStatement('LOCK TABLE invoice IN SHARE ROW EXCLUSIVE MODE');
 
-            $creditNote->setInvoiceNumber($this->generateCreditNoteNumber($creditNote));
+            $creditNote->setInvoiceNumber($this->invoiceNumberGenerator->next($creditNote));
             $creditNote->setInvoiceDate(new \DateTime());
             $creditNote->setStatus(InvoiceStatusEnum::ISSUED);
 
@@ -239,25 +240,4 @@ class RefundService
         return $copy;
     }
 
-    private function generateCreditNoteNumber(Invoice $invoice): string
-    {
-        $year = (new \DateTime())->format('Y');
-        $prefix = $invoice->getInstitute()?->getId() ? substr($invoice->getInstitute()->getId()->toRfc4122(), 0, 8) : 'AV';
-        $prefix = strtoupper($prefix);
-
-        $count = $this->entityManager->createQueryBuilder()
-            ->select('COUNT(i.id)')
-            ->from(Invoice::class, 'i')
-            ->where('i.institute = :institute')
-            ->andWhere('i.invoiceNumber IS NOT NULL')
-            ->andWhere('i.invoiceNumber LIKE :yearPattern')
-            ->setParameter('institute', $invoice->getInstitute())
-            ->setParameter('yearPattern', '%-' . $year . '-%')
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        $sequence = str_pad((int) $count + 1, 5, '0', STR_PAD_LEFT);
-
-        return "{$prefix}-{$year}-{$sequence}";
-    }
 }

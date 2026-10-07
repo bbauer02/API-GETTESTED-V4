@@ -89,6 +89,29 @@ class SessionEnrollOptionsTest extends WebTestCase
         $this->assertContains($optionExam->getExam()->getLabel(), $labels);
     }
 
+    public function testInvoiceNumbersAreUniqueAcrossInstitutes(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        // Une session ouverte par institut : les UUID v7 des instituts partagent le même début
+        $sessionsByInstitute = [];
+        foreach ($em->getRepository(Session::class)->findBy(['status' => SessionStatusEnum::OPEN]) as $session) {
+            $sessionsByInstitute[(string) $session->getInstitute()->getId()] ??= $session;
+        }
+        $this->assertGreaterThanOrEqual(2, count($sessionsByInstitute), 'Il faut deux instituts avec une session ouverte.');
+
+        $numbers = [];
+        foreach (array_slice($sessionsByInstitute, 0, 2) as $session) {
+            $data = $this->enroll($client, UserFixtures::ADMIN_EMAIL, $session, []);
+            $numbers[] = $em->getRepository(\App\Entity\Invoice::class)->find($data['invoices'][0]['id'])->getInvoiceNumber();
+        }
+
+        $this->assertCount(2, array_unique($numbers));
+    }
+
     public function testUnknownScheduledExamIsRejected(): void
     {
         $client = static::createClient();

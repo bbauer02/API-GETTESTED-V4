@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Invoice;
 use App\Enum\InvoiceStatusEnum;
+use App\Service\InvoiceNumberGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -13,6 +14,7 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 class InvoiceIssueProcessor implements ProcessorInterface
 {
     public function __construct(
+        private readonly InvoiceNumberGenerator $invoiceNumberGenerator,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -47,26 +49,10 @@ class InvoiceIssueProcessor implements ProcessorInterface
         $conn = $this->entityManager->getConnection();
         $conn->beginTransaction();
         try {
-            $year = (new \DateTime())->format('Y');
-            $prefix = $invoice->getInstitute()?->getId() ? substr($invoice->getInstitute()->getId()->toRfc4122(), 0, 8) : 'INV';
-            $prefix = strtoupper($prefix);
-
             // Verrou pessimiste sur la table invoice pour garantir l'unicité de la séquence
             $conn->executeStatement('LOCK TABLE invoice IN SHARE ROW EXCLUSIVE MODE');
 
-            $count = $this->entityManager->createQueryBuilder()
-                ->select('COUNT(i.id)')
-                ->from(Invoice::class, 'i')
-                ->where('i.institute = :institute')
-                ->andWhere('i.invoiceNumber IS NOT NULL')
-                ->andWhere('i.invoiceNumber LIKE :yearPattern')
-                ->setParameter('institute', $invoice->getInstitute())
-                ->setParameter('yearPattern', '%-' . $year . '-%')
-                ->getQuery()
-                ->getSingleScalarResult();
-
-            $sequence = str_pad((int) $count + 1, 5, '0', STR_PAD_LEFT);
-            $invoice->setInvoiceNumber("{$prefix}-{$year}-{$sequence}");
+            $invoice->setInvoiceNumber($this->invoiceNumberGenerator->next($invoice));
 
             $invoice->setInvoiceDate(new \DateTime());
             $invoice->setStatus(InvoiceStatusEnum::ISSUED);

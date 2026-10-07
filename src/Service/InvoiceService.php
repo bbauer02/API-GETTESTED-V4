@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 class InvoiceService
 {
     public function __construct(
+        private readonly InvoiceNumberGenerator $invoiceNumberGenerator,
         private readonly EntityManagerInterface $entityManager,
         private readonly StripeService $stripeService,
         private readonly string $platformName,
@@ -200,44 +201,11 @@ class InvoiceService
         $conn = $this->entityManager->getConnection();
         $conn->executeStatement('LOCK TABLE invoice IN SHARE ROW EXCLUSIVE MODE');
 
-        $invoice->setInvoiceNumber($this->generateInvoiceNumber($invoice));
+        $invoice->setInvoiceNumber($this->invoiceNumberGenerator->next($invoice));
         $invoice->setInvoiceDate(new \DateTime());
         $invoice->setStatus(InvoiceStatusEnum::ISSUED);
 
         $this->entityManager->flush();
-    }
-
-    private function generateInvoiceNumber(Invoice $invoice): string
-    {
-        $year = (new \DateTime())->format('Y');
-
-        // Préfixe différent pour factures plateforme vs institut
-        if ($invoice->getBusinessType() === BusinessTypeEnum::PLATFORM_COMMISSION) {
-            $prefix = 'GT'; // GetTested platform
-        } else {
-            $prefix = $invoice->getInstitute()?->getId()
-                ? strtoupper(substr($invoice->getInstitute()->getId()->toRfc4122(), 0, 8))
-                : 'INV';
-        }
-
-        // Compter les factures existantes pour la séquence
-        $qb = $this->entityManager->createQueryBuilder()
-            ->select('COUNT(i.id)')
-            ->from(Invoice::class, 'i')
-            ->where('i.invoiceNumber IS NOT NULL')
-            ->andWhere('i.invoiceNumber LIKE :yearPattern')
-            ->setParameter('yearPattern', $prefix . '-' . $year . '-%');
-
-        // Pour les factures institut, filtrer par institut
-        if ($invoice->getBusinessType() !== BusinessTypeEnum::PLATFORM_COMMISSION) {
-            $qb->andWhere('i.institute = :institute')
-                ->setParameter('institute', $invoice->getInstitute());
-        }
-
-        $count = $qb->getQuery()->getSingleScalarResult();
-        $sequence = str_pad((int) $count + 1, 5, '0', STR_PAD_LEFT);
-
-        return "{$prefix}-{$year}-{$sequence}";
     }
 
     private function buildCounterpartyFromInstitute(Institute $institute): Counterparty
