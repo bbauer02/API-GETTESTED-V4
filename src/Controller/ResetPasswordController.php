@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Repository\UserRepository;
+use App\Service\SessionRevoker;
 use App\Service\TokenService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,6 +28,7 @@ class ResetPasswordController extends AbstractController
         private readonly Environment $twig,
         private readonly string $frontendUrl,
         private readonly RateLimiterFactoryInterface $forgotPasswordLimiter,
+        private readonly SessionRevoker $sessionRevoker,
     ) {
     }
 
@@ -72,10 +74,10 @@ class ResetPasswordController extends AbstractController
     #[Route('/api/auth/reset-password/{token}', name: 'auth_reset_password', methods: ['POST'])]
     public function resetPassword(string $token, Request $request): JsonResponse
     {
-        $payload = $this->tokenService->validateToken($token);
-
-        if (!$payload || ($payload['type'] ?? null) !== 'reset_password') {
-            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide ou expiré.');
+        // Lien à usage unique : invalide dès que le mot de passe a changé
+        $user = $this->tokenService->userForSingleUseToken($token, 'reset_password');
+        if (!$user) {
+            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Ce lien est invalide, expiré ou a déjà été utilisé.');
         }
 
         $data = json_decode($request->getContent(), true);
@@ -85,14 +87,12 @@ class ResetPasswordController extends AbstractController
             return $this->hydraError(Response::HTTP_UNPROCESSABLE_ENTITY, 'Le mot de passe doit contenir au moins 8 caractères.');
         }
 
-        $user = $this->userRepository->findOneByEmail($payload['email']);
-        if (!$user) {
-            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide.');
-        }
-
         $hashedPassword = $this->passwordHasher->hashPassword($user, $newPassword);
         $user->setPassword($hashedPassword);
         $this->entityManager->flush();
+
+        // Toutes les sessions ouvertes sont fermées (compte potentiellement compromis)
+        $this->sessionRevoker->revokeAll($user);
 
         return $this->hydraSuccess('Mot de passe réinitialisé avec succès.');
     }

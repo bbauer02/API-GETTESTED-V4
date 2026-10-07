@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Service\SessionRevoker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,7 @@ class ChangePasswordController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly SessionRevoker $sessionRevoker,
     ) {
     }
 
@@ -54,10 +56,15 @@ class ChangePasswordController extends AbstractController
         $user->setPassword($this->passwordHasher->hashPassword($user, $newPassword));
         $this->entityManager->flush();
 
+        // Les sessions ouvertes ailleurs sont fermées ; celle-ci reçoit de nouveaux jetons
+        $this->sessionRevoker->revokeAll($user);
+        $tokens = $this->sessionRevoker->issueTokens($user);
+
         return new JsonResponse([
             '@context' => '/api/contexts/ChangePassword',
             '@type' => 'ChangePassword',
             'message' => 'Mot de passe modifié avec succès.',
+            ...$tokens,
         ], Response::HTTP_OK, ['Content-Type' => 'application/ld+json']);
     }
 

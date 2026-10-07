@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Votre adresse email a été modifiée</title>
+</head>
+<body>
+    <h1>Bonjour {{ user.firstname }},</h1>
+    <p>L'adresse email de votre compte GETTESTED vient d'être remplacée.</p>
+    <p>Ancienne adresse : {{ previousEmail }}<br>Nouvelle adresse : {{ user.email }}</p>
+    <p>Si vous êtes à l'origine de ce changement, vous n'avez rien à faire.</p>
+    <p><strong>Si ce n'est pas vous</strong>, contactez-nous immédiatement en répondant à cet email : votre compte a peut-être été utilisé par quelqu'un d'autre.</p>
+    <p>Cordialement,<br>L'équipe GETTESTED</p>
+</body>
+</html>

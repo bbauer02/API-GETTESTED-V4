@@ -39,6 +39,9 @@ class InvitationController extends AbstractController
             return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide.');
         }
 
+        // Lien déjà utilisé (mot de passe défini) ou compte déjà actif
+        $alreadyAccepted = $user->isActive() || !$this->tokenService->userForSingleUseToken($token, 'invitation');
+
         $instituteLabel = null;
         foreach ($user->getMemberships() as $membership) {
             if ($membership->getStatus() === MembershipStatusEnum::PENDING) {
@@ -58,27 +61,23 @@ class InvitationController extends AbstractController
             'firstname' => $user->getFirstname(),
             'lastname' => $user->getLastname(),
             'institute' => $instituteLabel,
-            'alreadyAccepted' => $user->isActive(),
+            'alreadyAccepted' => $alreadyAccepted,
         ], Response::HTTP_OK, ['Content-Type' => 'application/ld+json']);
     }
 
     #[Route('/api/auth/accept-invitation/{token}', name: 'auth_invitation_accept', methods: ['POST'])]
     public function accept(string $token, Request $request): JsonResponse
     {
-        $payload = $this->tokenService->validateToken($token);
-        if (!$payload || ($payload['type'] ?? null) !== 'invitation') {
-            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide ou expiré.');
+        // Lien à usage unique ; un compte désactivé par un admin ne peut pas être réactivé par ce biais
+        $user = $this->tokenService->userForSingleUseToken($token, 'invitation');
+        if (!$user || $user->isActive()) {
+            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Cette invitation est invalide, expirée ou a déjà été acceptée.');
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
         $password = $data['password'] ?? null;
         if (!is_string($password) || strlen($password) < 8) {
             return $this->hydraError(Response::HTTP_UNPROCESSABLE_ENTITY, 'Le mot de passe doit contenir au moins 8 caractères.');
-        }
-
-        $user = $this->userRepository->findOneByEmail($payload['email']);
-        if (!$user) {
-            return $this->hydraError(Response::HTTP_BAD_REQUEST, 'Token invalide.');
         }
 
         $user->setPassword($this->passwordHasher->hashPassword($user, $password));

@@ -9,8 +9,10 @@ use App\Service\TokenService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Twig\Environment;
@@ -24,6 +26,7 @@ class UserMePatchProcessor implements ProcessorInterface
         private readonly TokenService $tokenService,
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
+        private readonly UserPasswordHasherInterface $passwordHasher,
     ) {
     }
 
@@ -61,8 +64,18 @@ class UserMePatchProcessor implements ProcessorInterface
             $user->setPhoneVerificationExpiresAt(null);
         }
 
-        // Si l'email a changé → re-vérification nécessaire
-        if ($user->getEmail() !== $previousEmail) {
+        // Si l'email a changé → mot de passe actuel exigé, puis re-vérification
+        if (mb_strtolower((string) $user->getEmail()) !== mb_strtolower((string) $previousEmail)) {
+            $body = json_decode($json, true) ?? [];
+            $currentPassword = $body['currentPassword'] ?? null;
+            if (!is_string($currentPassword) || !$this->passwordHasher->isPasswordValid($user, $currentPassword)) {
+                $this->entityManager->refresh($user);
+
+                throw new UnprocessableEntityHttpException('Saisissez votre mot de passe actuel pour changer d\'adresse email.');
+            }
+
+            $this->notifyPreviousEmail($user, $previousEmail);
+
             $user->setIsVerified(false);
             $user->setEmailVerifiedAt(null);
 
@@ -76,6 +89,20 @@ class UserMePatchProcessor implements ProcessorInterface
         $this->entityManager->flush();
 
         return $user;
+    }
+
+    /** Prévient l'ancienne adresse : un changement non sollicité doit pouvoir être signalé. */
+    private function notifyPreviousEmail(User $user, string $previousEmail): void
+    {
+        $email = (new Email())
+            ->to($previousEmail)
+            ->subject('Votre adresse email a été modifiée - GETTESTED')
+            ->html($this->twig->render('email/email_changed.html.twig', [
+                'user' => $user,
+                'previousEmail' => $previousEmail,
+            ]));
+
+        $this->mailer->send($email);
     }
 
     private function sendVerificationEmail(User $user): void
