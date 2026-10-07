@@ -12,6 +12,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Link;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
+use App\Enum\EnrollmentStatusEnum;
 use App\Enum\SessionStatusEnum;
 use App\Repository\SessionRepository;
 use App\State\InstituteSessionCreateProcessor;
@@ -24,6 +25,7 @@ use App\State\SessionSoftDeleteProcessor;
 use App\State\SessionTransitionProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\Criteria;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
@@ -32,26 +34,30 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: SessionRepository::class)]
 #[ORM\Table(name: '`session`')]
+// Liste publique (statut + date), filtre de suppression logique appliqué à chaque requête
+#[ORM\Index(name: 'idx_session_status_start', columns: ['status', 'start'])]
+#[ORM\Index(name: 'idx_session_deleted_at', columns: ['deleted_at'])]
 #[ApiResource(
     operations: [
         new GetCollection(
             normalizationContext: ['groups' => ['session:read']],
         ),
+        // Le détail embarque les inscrits ; les listes n'ont que leur nombre (enrollmentsCount)
         new Get(
             provider: SessionItemProvider::class,
-            normalizationContext: ['groups' => ['session:read']],
+            normalizationContext: ['groups' => ['session:read', 'session:read:enrollments']],
         ),
         new Patch(
             security: "is_granted('SESSION_EDIT', object)",
             denormalizationContext: ['groups' => ['session:update']],
-            normalizationContext: ['groups' => ['session:read']],
+            normalizationContext: ['groups' => ['session:read', 'session:read:enrollments']],
             processor: SessionPatchProcessor::class,
         ),
         new Patch(
             uriTemplate: '/sessions/{id}/transition',
             security: "is_granted('SESSION_TRANSITION', object)",
             denormalizationContext: ['groups' => ['session:transition']],
-            normalizationContext: ['groups' => ['session:read']],
+            normalizationContext: ['groups' => ['session:read', 'session:read:enrollments']],
             processor: SessionTransitionProcessor::class,
         ),
         new Delete(
@@ -175,8 +181,8 @@ class Session
     private Collection $scheduledExams;
 
     /** @var Collection<int, EnrollmentSession> */
-    #[ORM\OneToMany(targetEntity: EnrollmentSession::class, mappedBy: 'session')]
-    #[Groups(['session:read'])]
+    #[ORM\OneToMany(targetEntity: EnrollmentSession::class, mappedBy: 'session', fetch: 'EXTRA_LAZY')]
+    #[Groups(['session:read:enrollments'])]
     private Collection $enrollments;
 
     /** @var Collection<int, SessionDocumentPublication> */
@@ -314,7 +320,10 @@ class Session
     /** @return Collection<int, EnrollmentSession> inscriptions non annulées */
     public function getActiveEnrollments(): Collection
     {
-        return $this->enrollments->filter(fn (EnrollmentSession $enrollment) => $enrollment->isActive());
+        // EXTRA_LAZY : un count() sur ce résultat est une requête COUNT, sans charger les inscriptions
+        return $this->enrollments->matching(
+            Criteria::create()->where(Criteria::expr()->eq('status', EnrollmentStatusEnum::ACTIVE))
+        );
     }
 
     public function getDeletedAt(): ?\DateTimeInterface

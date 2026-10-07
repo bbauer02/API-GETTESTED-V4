@@ -2,6 +2,7 @@
 
 namespace App\Serializer;
 
+use App\Service\SessionEnrollmentStats;
 use App\Entity\Session;
 use App\Entity\User;
 use App\Security\Voter\SessionVoter;
@@ -25,6 +26,7 @@ class SessionNormalizer implements NormalizerInterface, NormalizerAwareInterface
 
     public function __construct(
         private readonly Security $security,
+        private readonly SessionEnrollmentStats $enrollmentStats,
     ) {
     }
 
@@ -39,18 +41,15 @@ class SessionNormalizer implements NormalizerInterface, NormalizerAwareInterface
             return $normalized;
         }
 
-        $enrollments = $data->getActiveEnrollments();
-        $enrolledCount = $enrollments->count();
+        $user = $this->security->getUser();
+        $viewer = $user instanceof User ? $user : null;
+        $enrolledCount = $this->enrollmentStats->activeCount($data, $viewer);
 
         $normalized['enrollmentsCount'] = $enrolledCount;
         $normalized['placesRemaining'] = $data->getPlacesAvailable() !== null
             ? max(0, $data->getPlacesAvailable() - $enrolledCount)
             : null;
-
-        $user = $this->security->getUser();
-        $normalized['isEnrolledByMe'] = $user instanceof User && $enrollments->exists(
-            fn ($key, $enrollment) => $enrollment->getUser()?->getId()?->equals($user->getId())
-        );
+        $normalized['isEnrolledByMe'] = $this->enrollmentStats->isEnrolled($data, $viewer);
 
         if (!$this->security->isGranted(SessionVoter::SESSION_VIEW_ALL, $data)) {
             foreach (self::PRIVATE_FIELDS as $field) {

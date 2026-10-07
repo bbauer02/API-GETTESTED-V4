@@ -25,6 +25,9 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: EnrollmentSessionRepository::class)]
+// Comptage des inscrits actifs par session, tri par date d'inscription
+#[ORM\Index(name: 'idx_enrollment_session_status', columns: ['session_id', 'status'])]
+#[ORM\Index(name: 'idx_enrollment_registration_date', columns: ['registration_date'])]
 #[ApiResource(
     shortName: 'enrollment-sessions',
     operations: [

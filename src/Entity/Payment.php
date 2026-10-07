@@ -22,6 +22,8 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PaymentRepository::class)]
+// Recherche des paiements par webhook Stripe
+#[ORM\Index(name: 'idx_payment_stripe_intent', columns: ['stripe_payment_intent_id'])]
 #[ApiResource(
     operations: [
         new Get(

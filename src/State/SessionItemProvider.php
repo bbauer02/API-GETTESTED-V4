@@ -4,6 +4,8 @@ namespace App\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
+use Doctrine\ORM\EntityManagerInterface;
+use App\Entity\EnrollmentSession;
 use App\Entity\Session;
 use App\Enum\SessionStatusEnum;
 use App\Security\Voter\SessionVoter;
@@ -24,6 +26,7 @@ class SessionItemProvider implements ProviderInterface
         private readonly ProviderInterface $itemProvider,
         private readonly SessionAutoLockService $autoLockService,
         private readonly Security $security,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -39,6 +42,20 @@ class SessionItemProvider implements ProviderInterface
             }
 
             $this->autoLockService->lockIfExpired($session);
+
+            // Gestionnaires : les inscrits (candidat, épreuves, factures) sont sérialisés ;
+            // on les précharge en une requête plutôt qu'une série par inscrit
+            if ($this->security->isGranted(SessionVoter::SESSION_VIEW_ALL, $session)) {
+                $this->entityManager->getRepository(EnrollmentSession::class)->createQueryBuilder('e')
+                    ->addSelect('u', 'ee', 'inv')
+                    ->join('e.user', 'u')
+                    ->leftJoin('e.enrollmentExams', 'ee')
+                    ->leftJoin('e.invoices', 'inv')
+                    ->where('e.session = :session')
+                    ->setParameter('session', $session)
+                    ->getQuery()
+                    ->getResult();
+            }
         }
 
         return $session;

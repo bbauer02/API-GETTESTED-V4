@@ -77,8 +77,17 @@ class InstituteRoleAccessTest extends WebTestCase
         $sessions = $this->sessionsOf($client, $token, $institute);
         $this->assertCount(1, $sessions);
         $this->assertSame((string) $session->getId(), $sessions[0]['id']);
-        // Il voit les inscrits de cette session pour saisir les résultats
-        $this->assertArrayHasKey('enrollments', $sessions[0]);
+        // La liste ne porte que le nombre d'inscrits ; le détail de la session donne les inscrits
+        // (nécessaires à la saisie des résultats)
+        $this->assertArrayNotHasKey('enrollments', $sessions[0]);
+        $this->assertArrayHasKey('enrollmentsCount', $sessions[0]);
+
+        $client->request('GET', '/api/sessions/' . $session->getId(), [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+        $this->assertResponseIsSuccessful();
+        $this->assertArrayHasKey('enrollments', json_decode($client->getResponse()->getContent(), true));
     }
 
     public function testStaffCanManageSessionLifecycle(): void

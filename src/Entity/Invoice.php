@@ -31,6 +31,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: InvoiceRepository::class)]
+#[ORM\Index(name: 'idx_invoice_status', columns: ['status'])]
 #[ApiResource(
     operations: [
         new GetCollection(

@@ -40,9 +40,24 @@ class InstituteSessionProvider implements ProviderInterface
             throw new AccessDeniedHttpException('Vous n\'avez pas les droits pour voir les sessions de cet institut.');
         }
 
-        $sessions = $this->entityManager->getRepository(Session::class)->findBy([
-            'institute' => $institute,
-        ]);
+        // Une seule requête pour la session, son test, ses épreuves, leurs sujets et examinateurs
+        // (au lieu d'une série de requêtes par session)
+        $sessions = $this->entityManager->getRepository(Session::class)->createQueryBuilder('s')
+            ->addSelect('a', 'l', 'se', 'e', 'subject', 'examinator', 'center', 'publication', 'documentType')
+            ->leftJoin('s.assessment', 'a')
+            ->leftJoin('s.level', 'l')
+            ->leftJoin('s.scheduledExams', 'se')
+            ->leftJoin('se.exam', 'e')
+            ->leftJoin('se.subject', 'subject')
+            ->leftJoin('se.examinators', 'examinator')
+            ->leftJoin('se.examCenter', 'center')
+            ->leftJoin('s.documentPublications', 'publication')
+            ->leftJoin('publication.documentType', 'documentType')
+            ->where('s.institute = :institute')
+            ->setParameter('institute', $institute)
+            ->orderBy('s.start', 'DESC')
+            ->getQuery()
+            ->getResult();
 
         // TEACHER : uniquement les sessions dont il est examinateur
         if (!$this->canViewAllSessions($currentUser, $institute)) {

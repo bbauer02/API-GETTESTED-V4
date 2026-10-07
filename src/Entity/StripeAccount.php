@@ -13,6 +13,8 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: StripeAccountRepository::class)]
+// Recherche du compte par webhook Stripe (account.updated)
+#[ORM\Index(name: 'idx_stripe_account_stripe_id', columns: ['stripe_id'])]
 #[ApiResource(
     shortName: 'stripe-accounts',
     operations: [

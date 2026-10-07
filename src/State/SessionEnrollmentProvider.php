@@ -36,8 +36,21 @@ class SessionEnrollmentProvider implements ProviderInterface
 
         // platformAdmin ou institute ADMIN/STAFF : voit tous les enrollments
         if ($this->canViewAll($currentUser, $session)) {
-            return $this->entityManager->getRepository(EnrollmentSession::class)
-                ->findBy(['session' => $session, 'status' => EnrollmentStatusEnum::ACTIVE]);
+            // Inscrits avec candidat, épreuves (et leur planification) et factures en une requête
+            return $this->entityManager->getRepository(EnrollmentSession::class)->createQueryBuilder('e')
+                ->addSelect('u', 'ee', 'se', 'ex', 'inv')
+                ->join('e.user', 'u')
+                ->leftJoin('e.enrollmentExams', 'ee')
+                ->leftJoin('ee.scheduledExam', 'se')
+                ->leftJoin('se.exam', 'ex')
+                ->leftJoin('e.invoices', 'inv')
+                ->where('e.session = :session')
+                ->andWhere('e.status = :active')
+                ->setParameter('session', $session)
+                ->setParameter('active', EnrollmentStatusEnum::ACTIVE)
+                ->orderBy('e.registrationDate', 'ASC')
+                ->getQuery()
+                ->getResult();
         }
 
         // user standard : ne voit que son propre enrollment

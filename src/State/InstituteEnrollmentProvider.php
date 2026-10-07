@@ -38,8 +38,23 @@ class InstituteEnrollmentProvider implements ProviderInterface
             throw new AccessDeniedHttpException("Vous n'avez pas les droits pour voir les inscriptions de cet institut.");
         }
 
+        // Inscriptions avec candidat, session, épreuves et factures en une requête
         $qb = $this->entityManager->getRepository(EnrollmentSession::class)->createQueryBuilder('e')
+            ->addSelect('u', 's', 'a', 'l', 'ee', 'se', 'ex', 'inv', 'inst', 'sse', 'sex', 'ssubj', 'pub', 'dt')
+            ->join('e.user', 'u')
             ->join('e.session', 's')
+            ->leftJoin('s.assessment', 'a')
+            ->leftJoin('s.level', 'l')
+            ->leftJoin('e.enrollmentExams', 'ee')
+            ->leftJoin('ee.scheduledExam', 'se')
+            ->leftJoin('se.exam', 'ex')
+            ->leftJoin('e.invoices', 'inv')
+            ->leftJoin('s.institute', 'inst')
+            ->leftJoin('s.scheduledExams', 'sse')
+            ->leftJoin('sse.exam', 'sex')
+            ->leftJoin('sse.subject', 'ssubj')
+            ->leftJoin('s.documentPublications', 'pub')
+            ->leftJoin('pub.documentType', 'dt')
             ->where('s.institute = :institute')
             ->setParameter('institute', $institute)
             ->orderBy('e.registrationDate', 'DESC');
