@@ -1,0 +1,30 @@
+framework:
+    rate_limiter:
+        # Connexion : géré par login_throttling (security.yaml)
+        forgot_password:
+            policy: sliding_window
+            limit: 5
+            interval: '15 minutes'
+        phone_send_code:
+            policy: sliding_window
+            limit: 3
+            interval: '15 minutes'
+        phone_verify_code:
+            policy: fixed_window
+            limit: 5
+            interval: '15 minutes'
+
+when@test:
+    framework:
+        # Compteurs en mémoire, remis à zéro à chaque requête de test (y compris login_throttling)
+        cache:
+            pools:
+                cache.rate_limiter:
+                    adapter: cache.adapter.array
+        rate_limiter:
+            forgot_password:
+                policy: no_limit
+            phone_send_code:
+                policy: no_limit
+            phone_verify_code:
+                policy: no_limit

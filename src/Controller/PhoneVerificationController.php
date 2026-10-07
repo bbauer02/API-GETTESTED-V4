@@ -10,6 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -27,6 +28,8 @@ class PhoneVerificationController extends AbstractController
         private readonly SmsService $smsService,
         private readonly LoggerInterface $logger,
         private readonly string $appEnv,
+        private readonly RateLimiterFactoryInterface $phoneSendCodeLimiter,
+        private readonly RateLimiterFactoryInterface $phoneVerifyCodeLimiter,
     ) {
     }
 
@@ -40,6 +43,11 @@ class PhoneVerificationController extends AbstractController
         /** @var User $current */
         $current = $this->getUser();
         $user = $this->entityManager->getRepository(User::class)->find($current->getId());
+
+        // SMS payants : 3 envois maximum par quart d'heure et par utilisateur
+        if (!$this->phoneSendCodeLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            return $this->hydraError(Response::HTTP_TOO_MANY_REQUESTS, 'Trop de demandes de code. Réessayez dans quelques minutes.');
+        }
 
         $phone = SmsService::formatPhone($user->getPhoneCountryCode(), $user->getPhone());
         if (!$phone) {
@@ -55,10 +63,10 @@ class PhoneVerificationController extends AbstractController
 
         $message = sprintf('GETTESTED : votre code de vérification est %s (valable %d minutes).', $code, self::CODE_TTL_MINUTES);
 
+        // Le code n'est jamais journalisé
         $this->logger->info('Code de vérification téléphone généré', [
             'userId' => (string) $user->getId(),
             'to' => $phone,
-            'code' => $code,
         ]);
 
         try {
@@ -97,6 +105,15 @@ class PhoneVerificationController extends AbstractController
         $code = trim((string) ($body['code'] ?? ''));
         if (!preg_match('/^\d{6}$/', $code)) {
             return $this->hydraError(Response::HTTP_UNPROCESSABLE_ENTITY, 'Le code doit contenir 6 chiffres.');
+        }
+
+        // 5 essais maximum : au-delà, le code est invalidé et il faut en demander un nouveau
+        if (!$this->phoneVerifyCodeLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            $user->setPhoneVerificationCode(null);
+            $user->setPhoneVerificationExpiresAt(null);
+            $this->entityManager->flush();
+
+            return $this->hydraError(Response::HTTP_TOO_MANY_REQUESTS, 'Trop d\'essais. Demandez un nouveau code dans quelques minutes.');
         }
 
         $hash = $user->getPhoneVerificationCode();

@@ -170,7 +170,11 @@ class ExamCenterTest extends WebTestCase
         $token = $this->getJwtToken(UserFixtures::ADMIN_EMAIL, UserFixtures::DEFAULT_PASSWORD);
         $em = static::getContainer()->get(EntityManagerInterface::class);
         // Session TOEIC OPEN : Christophe et Didier y sont inscrits
-        $session = $em->getRepository(Session::class)->findOneBy(['status' => SessionStatusEnum::OPEN]);
+        $sessions = array_filter(
+            $em->getRepository(Session::class)->findBy(['status' => SessionStatusEnum::OPEN]),
+            fn (Session $s) => !$s->getEnrollments()->isEmpty()
+        );
+        $session = reset($sessions);
         $scheduledExam = $session->getScheduledExams()->first();
 
         $client->request('DELETE', '/api/scheduled-exams/' . $scheduledExam->getId(), [], [], [

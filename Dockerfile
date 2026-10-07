@@ -28,7 +28,8 @@ RUN echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "realpath_cache_size=4096K" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "realpath_cache_ttl=600" >> /usr/local/etc/php/conf.d/app.ini && \
     echo "upload_max_filesize=10M" >> /usr/local/etc/php/conf.d/app.ini && \
-    echo "post_max_size=12M" >> /usr/local/etc/php/conf.d/app.ini
+    echo "post_max_size=12M" >> /usr/local/etc/php/conf.d/app.ini && \
+    echo "expose_php=Off" >> /usr/local/etc/php/conf.d/app.ini
 
 # Expose ports
 EXPOSE 80 443
@@ -57,12 +58,21 @@ RUN echo "display_errors=Off" >> /usr/local/etc/php/conf.d/prod.ini && \
     echo "opcache.preload=/app/config/preload.php" >> /usr/local/etc/php/conf.d/prod.ini && \
     echo "opcache.preload_user=www-data" >> /usr/local/etc/php/conf.d/prod.ini
 
+# Environnement de production AVANT l'installation (les scripts Composer lisent APP_ENV)
+ENV APP_ENV=prod
+ENV APP_DEBUG=0
+ENV SERVER_NAME=":80, :443"
+# Mode worker FrankenPHP (comme en dev)
+ENV FRANKENPHP_CONFIG="worker ./public/index.php"
+
 COPY . /app
 
-RUN composer install --no-dev --optimize-autoloader --classmap-authoritative && \
-    bin/console cache:warmup --env=prod
-
-ENV APP_ENV=prod
-ENV SERVER_NAME=":80, :443"
+# Secrets (APP_SECRET, DATABASE_URL, JWT_PASSPHRASE, STRIPE_*, MAILER_DSN...) fournis à l'exécution
+# par des variables d'environnement, jamais copiés dans l'image (voir .dockerignore)
+RUN composer install --no-dev --no-scripts --prefer-dist --no-progress && \
+    composer dump-autoload --no-dev --classmap-authoritative && \
+    php bin/console cache:clear --no-warmup && \
+    php bin/console cache:warmup && \
+    php bin/console assets:install public
 
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

@@ -1,0 +1,23 @@
+# Jamais dans l'image : secrets locaux, dépendances, caches, fichiers des utilisateurs, outils
+.git
+.idea
+.env.local
+.env.*.local
+.env.dev
+.env.test
+config/jwt/*.pem
+var/
+vendor/
+public/uploads/
+public/bundles/
+tests/
+mock/
+postman/
+.phpunit.cache/
+phpunit.xml
+compose.override.yaml
+.claude
+.kiro
+SPEC
+*.md
+*.puml

@@ -9,6 +9,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -25,6 +26,7 @@ class ResetPasswordController extends AbstractController
         private readonly MailerInterface $mailer,
         private readonly Environment $twig,
         private readonly string $frontendUrl,
+        private readonly RateLimiterFactoryInterface $forgotPasswordLimiter,
     ) {
     }
 
@@ -36,6 +38,13 @@ class ResetPasswordController extends AbstractController
 
         if (!$email) {
             return $this->hydraSuccess('Demande traitée.');
+        }
+
+        // Limite par adresse IP et par email : pas de bombardement de mails
+        $ipLimit = $this->forgotPasswordLimiter->create('ip-' . $request->getClientIp())->consume();
+        $emailLimit = $this->forgotPasswordLimiter->create('email-' . mb_strtolower((string) $email))->consume();
+        if (!$ipLimit->isAccepted() || !$emailLimit->isAccepted()) {
+            return $this->hydraError(Response::HTTP_TOO_MANY_REQUESTS, 'Trop de demandes. Réessayez dans quelques minutes.');
         }
 
         $user = $this->userRepository->findOneByEmail($email);
