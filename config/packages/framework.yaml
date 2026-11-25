@@ -2,6 +2,9 @@
 framework:
     secret: '%env(APP_SECRET)%'
 
+    # Langue de l'API : voir translation.yaml (composant symfony/translation)
+    default_locale: fr
+
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 

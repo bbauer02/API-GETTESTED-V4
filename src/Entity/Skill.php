@@ -14,6 +14,7 @@ use ApiPlatform\Metadata\Post;
 use App\Repository\SkillRepository;
 use App\State\AssessmentSkillCreateProcessor;
 use App\State\ExamSkillCreateProcessor;
+use App\State\SkillDeleteProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -40,8 +41,10 @@ use Symfony\Component\Validator\Constraints as Assert;
             denormalizationContext: ['groups' => ['skill:write']],
             normalizationContext: ['groups' => ['skill:read']],
         ),
+        // Administrateur plateforme ou ADMIN de l'institut propriétaire du test (SkillDeleteProcessor)
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            processor: SkillDeleteProcessor::class,
         ),
     ],
     paginationItemsPerPage: 30,

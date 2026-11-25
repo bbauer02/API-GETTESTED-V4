@@ -32,14 +32,14 @@ class StripeConnectController extends AbstractController
     public function createConnectedAccount(Institute $institute): JsonResponse
     {
         if (!$this->canManageInstitute($institute)) {
-            return $this->hydraError(Response::HTTP_FORBIDDEN, 'You are not allowed to manage this institute.');
+            return $this->hydraError(Response::HTTP_FORBIDDEN, 'Vous n\'avez pas les droits pour gérer le compte Stripe de cet institut.');
         }
 
         // Check if already connected
         if ($institute->getStripeAccount() !== null) {
             return $this->hydraError(
                 Response::HTTP_CONFLICT,
-                'This institute already has a Stripe account.'
+                'Cet institut possède déjà un compte Stripe.'
             );
         }
 
@@ -67,7 +67,7 @@ class StripeConnectController extends AbstractController
                 'onboardingComplete' => false,
             ], Response::HTTP_CREATED, ['Content-Type' => 'application/ld+json']);
         } catch (\Stripe\Exception\ApiErrorException $e) {
-            return $this->hydraError(Response::HTTP_BAD_GATEWAY, 'Stripe error: ' . $e->getMessage());
+            return $this->hydraError(Response::HTTP_BAD_GATEWAY, 'Stripe ne répond pas pour le moment : ' . $e->getMessage());
         }
     }
 
@@ -79,14 +79,14 @@ class StripeConnectController extends AbstractController
     public function createAccountSession(Institute $institute): JsonResponse
     {
         if (!$this->canManageInstitute($institute)) {
-            return $this->hydraError(Response::HTTP_FORBIDDEN, 'You are not allowed to manage this institute.');
+            return $this->hydraError(Response::HTTP_FORBIDDEN, 'Vous n\'avez pas les droits pour gérer le compte Stripe de cet institut.');
         }
 
         $stripeAccount = $institute->getStripeAccount();
         if ($stripeAccount === null) {
             return $this->hydraError(
                 Response::HTTP_NOT_FOUND,
-                'This institute has no Stripe account. Create one first.'
+                'Cet institut n\'a pas encore de compte Stripe. Connectez-le d\'abord.'
             );
         }
 
@@ -97,7 +97,7 @@ class StripeConnectController extends AbstractController
                 'client_secret' => $accountSession->client_secret,
             ], Response::HTTP_OK, ['Content-Type' => 'application/json']);
         } catch (\Stripe\Exception\ApiErrorException $e) {
-            return $this->hydraError(Response::HTTP_BAD_GATEWAY, 'Stripe error: ' . $e->getMessage());
+            return $this->hydraError(Response::HTTP_BAD_GATEWAY, 'Stripe ne répond pas pour le moment : ' . $e->getMessage());
         }
     }
 
@@ -109,7 +109,7 @@ class StripeConnectController extends AbstractController
     public function getAccountStatus(Institute $institute): JsonResponse
     {
         if (!$this->canManageInstitute($institute)) {
-            return $this->hydraError(Response::HTTP_FORBIDDEN, 'You are not allowed to manage this institute.');
+            return $this->hydraError(Response::HTTP_FORBIDDEN, 'Vous n\'avez pas les droits pour gérer le compte Stripe de cet institut.');
         }
 
         $stripeAccount = $institute->getStripeAccount();
@@ -140,7 +140,7 @@ class StripeConnectController extends AbstractController
                 'onboardingComplete' => $stripeAccount->isOnboardingComplete(),
             ], Response::HTTP_OK, ['Content-Type' => 'application/json']);
         } catch (\Stripe\Exception\ApiErrorException $e) {
-            return $this->hydraError(Response::HTTP_BAD_GATEWAY, 'Stripe error: ' . $e->getMessage());
+            return $this->hydraError(Response::HTTP_BAD_GATEWAY, 'Stripe ne répond pas pour le moment : ' . $e->getMessage());
         }
     }
 
@@ -157,6 +157,7 @@ class StripeConnectController extends AbstractController
         // Check institute membership with ADMIN role
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
+                && $membership->isActive()
                 && $membership->getRole() === InstituteRoleEnum::ADMIN
             ) {
                 return true;
@@ -171,7 +172,7 @@ class StripeConnectController extends AbstractController
         return new JsonResponse([
             '@context' => '/api/contexts/Error',
             '@type' => 'Error',
-            'title' => 'An error occurred',
+            'title' => 'Une erreur est survenue',
             'detail' => $detail,
             'status' => $status,
         ], $status, ['Content-Type' => 'application/ld+json']);

@@ -39,6 +39,15 @@ class SessionPatchProcessor implements ProcessorInterface
             ),
         };
 
+        // Cohérence des dates, contrôlée seulement si l'une d'elles change (ne bloque pas
+        // la modification des places d'une session ancienne aux dates incohérentes)
+        $datesChanged = $session->getStart() != $previousData->getStart()
+            || $session->getEnd() != $previousData->getEnd()
+            || $session->getLimitDateSubscribe() != $previousData->getLimitDateSubscribe();
+        if ($datesChanged && ($datesError = $session->getDatesValidationError())) {
+            throw new UnprocessableEntityHttpException($datesError);
+        }
+
         $this->entityManager->flush();
 
         return $session;

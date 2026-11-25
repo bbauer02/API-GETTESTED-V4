@@ -128,6 +128,9 @@ class ExamFinisher
 
         return [
             'enrollmentExamId' => $enrollmentExam->getId()->toRfc4122(),
+            'examName' => $enrollmentExam->getExamName(),
+            'assessmentName' => $enrollmentExam->getAssessmentName(),
+            'totalDurationSeconds' => $this->totalDurationSeconds($enrollmentExam),
             'totalQuestions' => count($scoredQuestions),
             'answeredQuestions' => $answered,
             'correctAnswers' => $correct,
@@ -139,5 +142,22 @@ class ExamFinisher
             'status' => $enrollmentExam->getStatus()->value,
             'skillBreakdown' => $skillBreakdown,
         ];
+    }
+
+    /** Temps passé sur l'épreuve : du démarrage à maintenant, plafonné à la durée de l'épreuve. */
+    private function totalDurationSeconds(EnrollmentExam $enrollmentExam): ?int
+    {
+        $startedAt = $enrollmentExam->getStartedAt();
+        if ($startedAt === null) {
+            return null;
+        }
+
+        $seconds = max(0, time() - $startedAt->getTimestamp());
+        $durationMinutes = $enrollmentExam->getScheduledExam()?->getExam()?->getDuration();
+        if ($durationMinutes && $durationMinutes > 0) {
+            $seconds = min($seconds, $durationMinutes * 60);
+        }
+
+        return $seconds;
     }
 }

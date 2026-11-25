@@ -30,6 +30,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: InstituteRepository::class)]
 #[ApiResource(
     operations: [
+        // Lecture : les non-membres ne voient que les instituts validés (InstituteVisibilityExtension) ;
+        // le détail complet est réservé à l'admin plateforme et à l'équipe de l'institut, les autres
+        // reçoivent le groupe réduit `institute:read:public` (InstituteNormalizer).
         new GetCollection(
             normalizationContext: ['groups' => ['institute:read']],
         ),
@@ -76,18 +79,18 @@ class Institute implements ContactableInterface
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['institute:read', 'session:read', 'user:read:self', 'assessment:read', 'enrollment:read'])]
+    #[Groups(['institute:read', 'institute:read:public', 'session:read', 'user:read:self', 'assessment:read', 'enrollment:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['institute:read', 'institute:write', 'session:read', 'assessment:read', 'user:read:self', 'enrollment:read'])]
+    #[Groups(['institute:read', 'institute:read:public', 'institute:write', 'session:read', 'assessment:read', 'user:read:self', 'enrollment:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;
 
     /** Statut de validation par la plateforme (modifiable uniquement via PATCH /institutes/{id}/status). */
     #[ORM\Column(length: 20, enumType: InstituteStatusEnum::class, options: ['default' => 'ACTIVE'])]
-    #[Groups(['institute:read', 'institute:status', 'user:read:self'])]
+    #[Groups(['institute:read', 'institute:read:public', 'institute:status', 'user:read:self'])]
     #[Assert\NotNull(groups: ['institute:status'])]
     private InstituteStatusEnum $status = InstituteStatusEnum::ACTIVE;
 
@@ -98,16 +101,16 @@ class Institute implements ContactableInterface
     private ?string $email = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:read:public', 'institute:write'])]
     #[Assert\Length(max: 255)]
     private ?string $siteweb = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:read:public', 'institute:write'])]
     private ?array $socialNetworks = null;
 
     #[ORM\Embedded(class: Address::class, columnPrefix: 'address_')]
-    #[Groups(['institute:read', 'institute:write', 'session:read', 'enrollment:read'])]
+    #[Groups(['institute:read', 'institute:read:public', 'institute:write', 'session:read', 'enrollment:read'])]
     private Address $address;
 
     #[ORM\Column(length: 50, nullable: true)]
@@ -141,15 +144,15 @@ class Institute implements ContactableInterface
     private ?string $rcsCity = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['institute:read', 'session:read', 'enrollment:read'])]
+    #[Groups(['institute:read', 'institute:read:public', 'session:read', 'enrollment:read'])]
     private ?string $logo = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['institute:read'])]
+    #[Groups(['institute:read', 'institute:read:public'])]
     private ?string $coverImage = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
-    #[Groups(['institute:read', 'institute:write'])]
+    #[Groups(['institute:read', 'institute:read:public', 'institute:write'])]
     private ?int $coverPositionY = 50;
 
     #[ORM\OneToOne(mappedBy: 'institute', targetEntity: StripeAccount::class, cascade: ['persist', 'remove'])]

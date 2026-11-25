@@ -149,10 +149,10 @@ class PracticeAnswerProcessor implements ProcessorInterface
 
         if ($question instanceof FillBlankQuestion) {
             $slots = [];
-            foreach ($question->getBlankSlots() as $slot) {
+            foreach ($this->graderService->blankSlotKeys($question) as $entry) {
                 $slots[] = [
-                    'position' => $slot->getPosition(),
-                    'acceptedAnswers' => $slot->getAcceptedAnswers(),
+                    'position' => (int) $entry['key'],
+                    'acceptedAnswers' => $entry['slot']->getAcceptedAnswers(),
                 ];
             }
 

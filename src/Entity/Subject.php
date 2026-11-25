@@ -41,7 +41,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         new Post(
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             processor: \App\State\SubjectCreateProcessor::class,
-            denormalizationContext: ['groups' => ['subject:write']],
+            denormalizationContext: ['groups' => ['subject:write', 'subject:create']],
             normalizationContext: ['groups' => ['subject:read']],
         ),
     ],
@@ -109,8 +109,9 @@ class Subject
     #[Groups(['subject:read', 'subject:write'])]
     private ?string $description = null;
 
+    // Statut piloté par les opérations lock / archive uniquement
     #[ORM\Column(length: 20, enumType: SubjectStatusEnum::class)]
-    #[Groups(['subject:read', 'subject:write'])]
+    #[Groups(['subject:read'])]
     private SubjectStatusEnum $status = SubjectStatusEnum::DRAFT;
 
     #[ORM\Column(length: 20, enumType: SubjectModeEnum::class)]
@@ -121,8 +122,9 @@ class Subject
     #[Groups(['subject:read', 'subject:write'])]
     private ?float $passingScore = null;
 
+    // Calculé au verrouillage (SubjectLockProcessor)
     #[ORM\Column(type: Types::FLOAT, nullable: true)]
-    #[Groups(['subject:read', 'subject:write'])]
+    #[Groups(['subject:read'])]
     private ?float $totalMaxPoints = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
@@ -138,8 +140,9 @@ class Subject
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\OneToOne(targetEntity: ScheduledExam::class, inversedBy: 'subject')]
+    // Fixée à la création (SubjectCreateProcessor), non modifiable par PATCH
     #[ORM\JoinColumn(nullable: false, unique: true)]
-    #[Groups(['subject:read', 'subject:write'])]
+    #[Groups(['subject:read', 'subject:create'])]
     private ?ScheduledExam $scheduledExam = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
@@ -266,6 +269,15 @@ class Subject
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * Identifiant du test de la session (filtre des questions ajoutables au sujet).
+     */
+    #[Groups(['subject:read'])]
+    public function getAssessmentId(): ?string
+    {
+        return $this->scheduledExam?->getSession()?->getAssessment()?->getId()?->toRfc4122();
     }
 
     public function getScheduledExam(): ?ScheduledExam

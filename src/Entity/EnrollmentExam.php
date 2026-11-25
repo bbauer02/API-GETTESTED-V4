@@ -171,6 +171,20 @@ class EnrollmentExam
         return $this->scheduledExam?->getSubject()?->getTotalMaxPoints();
     }
 
+    /** Nom de l'épreuve (affiché au candidat). */
+    #[Groups(['enrollment_exam:read'])]
+    public function getExamName(): ?string
+    {
+        return $this->scheduledExam?->getExam()?->getLabel();
+    }
+
+    /** Nom du test (assessment) de la session. */
+    #[Groups(['enrollment_exam:read'])]
+    public function getAssessmentName(): ?string
+    {
+        return $this->enrollmentSession?->getSession()?->getAssessment()?->getLabel();
+    }
+
     public function getStartedAt(): ?\DateTimeInterface
     {
         return $this->startedAt;

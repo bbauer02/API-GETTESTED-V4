@@ -19,7 +19,8 @@ class QuestionVoter extends Voter
 
     protected function supports(string $attribute, mixed $subject): bool
     {
-        // QUESTION_CREATE doesn't need a subject (it's checked at POST time)
+        // QUESTION_CREATE est évalué après la désérialisation (securityPostDenormalize) :
+        // le sujet est la question à créer, avec son test déjà renseigné.
         if ($attribute === self::QUESTION_CREATE) {
             return true;
         }
@@ -34,25 +35,33 @@ class QuestionVoter extends Voter
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
     {
         return match ($attribute) {
-            self::QUESTION_CREATE => $this->canCreate($token),
+            self::QUESTION_CREATE => $this->canCreate($token, $subject),
             self::QUESTION_EDIT => $this->canEdit($token, $subject),
             self::QUESTION_DELETE => $this->canDelete($token, $subject),
             default => false,
         };
     }
 
-    private function canCreate(TokenInterface $token): bool
+    /**
+     * Création : administrateur plateforme, ou ADMIN / TEACHER actif d'un institut
+     * propriétaire (OWNER) du test de la question.
+     */
+    private function canCreate(TokenInterface $token, mixed $question): bool
     {
         $user = $token->getUser();
         if (!$user instanceof User) {
             return false;
         }
-        // Platform admin or any institute ADMIN/TEACHER can create questions
+
         if ($user->getPlatformRole() === PlatformRoleEnum::ADMIN) {
             return true;
         }
-        // Basic auth check - detailed assessment check is in the processor
-        return true; // Any authenticated user can attempt; processor validates assessment ownership
+
+        if (!$question instanceof Question) {
+            return false;
+        }
+
+        return $this->isAssessmentOwnerMember($user, $question);
     }
 
     private function canEdit(TokenInterface $token, Question $question): bool
@@ -61,8 +70,8 @@ class QuestionVoter extends Voter
             return true;
         }
 
-        // Only DRAFT and PRETESTING questions can be fully edited
-        // CALIBRATED: only label/instruction editable (handled in processor)
+        // DRAFT et PRETESTING : modifiables entièrement
+        // CALIBRATED : seuls le libellé et la consigne (QuestionPatchProcessor)
         // RETIRED: not editable at all
         if ($question->getStatus() === QuestionStatusEnum::RETIRED) {
             return false;
@@ -122,7 +131,8 @@ class QuestionVoter extends Voter
             }
 
             foreach ($institute->getMemberships() as $membership) {
-                if ($membership->getUser()?->getId()?->equals($user->getId())
+                if ($membership->isActive()
+                    && $membership->getUser()?->getId()?->equals($user->getId())
                     && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::TEACHER])
                 ) {
                     return true;
@@ -154,7 +164,8 @@ class QuestionVoter extends Voter
             }
 
             foreach ($institute->getMemberships() as $membership) {
-                if ($membership->getUser()?->getId()?->equals($user->getId())
+                if ($membership->isActive()
+                    && $membership->getUser()?->getId()?->equals($user->getId())
                     && $membership->getRole() === InstituteRoleEnum::ADMIN
                 ) {
                     return true;

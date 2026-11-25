@@ -1,0 +1,8 @@
+framework:
+    # Langue de l'API : messages de validation et d'authentification en français
+    default_locale: fr
+    translator:
+        default_path: '%kernel.project_dir%/translations'
+        fallbacks:
+            - fr
+        providers:

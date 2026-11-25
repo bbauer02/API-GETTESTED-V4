@@ -88,9 +88,14 @@ use Symfony\Component\Validator\Constraints as Assert;
         ),
         new Patch(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            // L'administrateur ne peut ni désactiver son propre compte ni se retirer le rôle admin
+            securityPostDenormalize: "previous_object.getId().toRfc4122() != user.getId().toRfc4122() or (object.isActive() and object.getPlatformRole() == previous_object.getPlatformRole())",
+            securityPostDenormalizeMessage: "Vous ne pouvez pas désactiver votre propre compte ni retirer votre propre rôle d'administrateur.",
             denormalizationContext: ['groups' => ['user:write:admin', 'user:write:self']],
             normalizationContext: ['groups' => ['user:read:admin']],
-            validationContext: ['groups' => ['user:write:admin', 'user:write:self']],
+            // Default : contraintes communes (email unique, prénom/nom requis…) ; sans lui, un email
+            // en doublon finissait en erreur SQL 500
+            validationContext: ['groups' => ['Default', 'user:write:admin', 'user:write:self']],
         ),
         new Delete(
             security: "is_granted('ROLE_PLATFORM_ADMIN')",

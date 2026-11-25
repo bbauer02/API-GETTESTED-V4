@@ -24,17 +24,19 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     shortName: 'document-templates',
     operations: [
+        // Modèle maître : tout compte connecté ; modèle d'institut : ADMIN / STAFF / TEACHER actif de l'institut
         new Get(
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            security: "object.getInstitute() === null ? is_granted('IS_AUTHENTICATED_FULLY') : is_granted('INSTITUTE_STAFF_VIEW', object.getInstitute())",
             normalizationContext: ['groups' => ['document_template:read']],
         ),
+        // Le personnel (STAFF) gère les documents comme l'ADMIN
         new Patch(
-            security: "object.getInstitute() === null ? is_granted('ROLE_PLATFORM_ADMIN') : is_granted('INSTITUTE_EDIT', object.getInstitute())",
+            security: "object.getInstitute() === null ? is_granted('ROLE_PLATFORM_ADMIN') : is_granted('INSTITUTE_DOCUMENTS_MANAGE', object.getInstitute())",
             denormalizationContext: ['groups' => ['document_template:write']],
             normalizationContext: ['groups' => ['document_template:read']],
         ),
         new Delete(
-            security: "object.getInstitute() === null ? is_granted('ROLE_PLATFORM_ADMIN') : is_granted('INSTITUTE_EDIT', object.getInstitute())",
+            security: "object.getInstitute() === null ? is_granted('ROLE_PLATFORM_ADMIN') : is_granted('INSTITUTE_DOCUMENTS_MANAGE', object.getInstitute())",
         ),
     ],
 )]

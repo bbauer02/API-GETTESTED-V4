@@ -190,10 +190,11 @@ class PracticeNextQuestionProvider implements ProviderInterface
         if ($question instanceof FillBlankQuestion) {
             return [
                 'blankSymbol' => $question->getBlankSymbol(),
-                'slots' => array_map(fn($s) => [
-                    'id' => $s->getId()->toRfc4122(),
-                    'position' => $s->getPosition(),
-                ], $question->getBlankSlots()->toArray()),
+                // Même clé que la correction : position, ou rang si les positions sont en double
+                'slots' => array_map(fn(array $entry) => [
+                    'id' => $entry['slot']->getId()->toRfc4122(),
+                    'position' => (int) $entry['key'],
+                ], $this->graderService->blankSlotKeys($question)),
             ];
         }
 

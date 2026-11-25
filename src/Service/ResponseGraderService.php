@@ -112,6 +112,8 @@ class ResponseGraderService
 
     // -------- FillBlank Grading --------
     // givenAnswer format: {"slots": {"0": "answer1", "1": "answer2"}}
+    // La clé est la position du trou (celle envoyée par /start, voir blankSlotKeys()) ;
+    // l'identifiant du trou est aussi accepté.
     //
     // For each slot: check if given answer is in acceptedAnswers
     // Respects caseSensitive and accentSensitive flags
@@ -120,8 +122,12 @@ class ResponseGraderService
     private function gradeFillBlank(FillBlankQuestion $question, array $givenAnswer): float
     {
         $givenSlots = $givenAnswer['slots'] ?? [];
-        $blankSlots = $question->getBlankSlots();
-        $totalSlots = count($blankSlots);
+        if (!is_array($givenSlots)) {
+            return 0.0;
+        }
+
+        $orderedSlots = $this->blankSlotKeys($question);
+        $totalSlots = count($orderedSlots);
 
         if ($totalSlots === 0) {
             return 0.0;
@@ -129,17 +135,46 @@ class ResponseGraderService
 
         $correctCount = 0;
 
-        foreach ($blankSlots as $slot) {
-            $position = (string) $slot->getPosition();
-            $given = $givenSlots[$position] ?? '';
-            $acceptedAnswers = $slot->getAcceptedAnswers();
+        foreach ($orderedSlots as ['slot' => $slot, 'key' => $key]) {
+            $given = $givenSlots[$slot->getId()->toRfc4122()] ?? $givenSlots[$key] ?? '';
+            if (!is_scalar($given)) {
+                continue;
+            }
 
-            if ($this->isBlankCorrect($given, $acceptedAnswers, $slot->isCaseSensitive(), $slot->isAccentSensitive())) {
+            if ($this->isBlankCorrect((string) $given, $slot->getAcceptedAnswers(), $slot->isCaseSensitive(), $slot->isAccentSensitive())) {
                 $correctCount++;
             }
         }
 
         return $correctCount / $totalSlots;
+    }
+
+    /**
+     * Trous dans l'ordre de l'énoncé, avec la clé de réponse de chacun.
+     * Le n-ième symbole de trou de l'énoncé correspond au n-ième trou de cette liste.
+     * Positions distinctes : la clé est la position. Positions en double (anciennes questions,
+     * toutes à 0) : la clé est le rang du trou, dans l'ordre d'enregistrement.
+     *
+     * @return list<array{slot: BlankSlot, key: string}>
+     */
+    public function blankSlotKeys(FillBlankQuestion $question): array
+    {
+        $slots = $question->getBlankSlots()->toArray();
+        // Tri stable : à position égale, l'ordre de la collection est conservé
+        usort($slots, fn (BlankSlot $a, BlankSlot $b) => $a->getPosition() <=> $b->getPosition());
+
+        $positions = array_map(fn (BlankSlot $s) => $s->getPosition(), $slots);
+        $distinct = count(array_unique($positions)) === count($positions);
+
+        $result = [];
+        foreach (array_values($slots) as $index => $slot) {
+            $result[] = [
+                'slot' => $slot,
+                'key' => (string) ($distinct ? $slot->getPosition() : $index),
+            ];
+        }
+
+        return $result;
     }
 
     private function isBlankCorrect(string $given, array $accepted, bool $caseSensitive, bool $accentSensitive): bool

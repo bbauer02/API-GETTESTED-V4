@@ -14,7 +14,8 @@ use Symfony\Component\Validator\Constraints as Assert;
     shortName: 'fill-blank-questions',
     operations: [
         new Post(
-            security: "is_granted('QUESTION_CREATE')",
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            securityPostDenormalize: "is_granted('QUESTION_CREATE', object)",
             denormalizationContext: ['groups' => ['question:write']],
             normalizationContext: ['groups' => ['question:read']],
         ),

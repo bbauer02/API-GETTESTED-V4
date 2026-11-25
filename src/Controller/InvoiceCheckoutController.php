@@ -13,11 +13,13 @@ use App\Service\CandidateNotifier;
 use App\Service\StripeService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -29,6 +31,9 @@ class InvoiceCheckoutController extends AbstractController
         private readonly InvoiceService $invoiceService,
         private readonly CandidateNotifier $candidateNotifier,
         private readonly EntityManagerInterface $entityManager,
+        private readonly string $frontendUrl,
+        #[Autowire(env: 'CORS_ALLOW_ORIGIN')]
+        private readonly string $allowedOriginPattern = '',
     ) {
     }
 
@@ -65,6 +70,11 @@ class InvoiceCheckoutController extends AbstractController
             throw new BadRequestHttpException('Les URLs successUrl et cancelUrl sont requises.');
         }
 
+        // Pas de redirection ouverte via Stripe : retour uniquement vers le front de la plateforme
+        if (!$this->isAllowedReturnUrl($successUrl) || !$this->isAllowedReturnUrl($cancelUrl)) {
+            throw new BadRequestHttpException('Les adresses de retour du paiement ne sont pas autorisées.');
+        }
+
         // Créer un Payment PENDING
         $payment = new Payment();
         $payment->setInvoice($invoice);
@@ -83,24 +93,32 @@ class InvoiceCheckoutController extends AbstractController
             ? $assessment->getLabel() . ' — Session du ' . $session->getStart()?->format('d/m/Y')
             : 'Inscription session #' . $session?->getId();
 
-        $checkoutSession = $this->stripeService->createCheckoutSession(
-            stripeAccountId: $stripeAccount->getStripeId(),
-            amountInCents: (int) round($invoice->getTotalTTC() * 100),
-            totalHTInCents: (int) round($invoice->getTotalHT() * 100),
-            currency: $invoice->getCurrency(),
-            productName: $productName,
-            successUrl: $successUrl,
-            cancelUrl: $cancelUrl,
-            metadata: [
-                'invoiceId' => $invoice->getId()->toRfc4122(),
-                'paymentId' => $payment->getId()->toRfc4122(),
-                'enrollmentId' => $enrollment->getId()->toRfc4122(),
-                'instituteId' => $institute->getId()->toRfc4122(),
-            ],
-            instituteCommission: $stripeAccount->getCommissionPercent() !== null
-                ? (string) $stripeAccount->getCommissionPercent()
-                : null,
-        );
+        try {
+            $checkoutSession = $this->stripeService->createCheckoutSession(
+                stripeAccountId: $stripeAccount->getStripeId(),
+                amountInCents: (int) round($invoice->getTotalTTC() * 100),
+                totalHTInCents: (int) round($invoice->getTotalHT() * 100),
+                currency: $invoice->getCurrency(),
+                productName: $productName,
+                successUrl: $successUrl,
+                cancelUrl: $cancelUrl,
+                metadata: [
+                    'invoiceId' => $invoice->getId()->toRfc4122(),
+                    'paymentId' => $payment->getId()->toRfc4122(),
+                    'enrollmentId' => $enrollment->getId()->toRfc4122(),
+                    'instituteId' => $institute->getId()->toRfc4122(),
+                ],
+                instituteCommission: $stripeAccount->getCommissionPercent() !== null
+                    ? (string) $stripeAccount->getCommissionPercent()
+                    : null,
+            );
+        } catch (\Throwable $e) {
+            // Pas de paiement PENDING orphelin : la tentative est marquée en échec
+            $payment->setStatus(PaymentStatusEnum::FAILED);
+            $this->entityManager->flush();
+
+            throw new HttpException(Response::HTTP_BAD_GATEWAY, 'Le service de paiement est momentanément indisponible. Réessayez plus tard.', $e);
+        }
 
         // Stocker l'ID du payment intent Stripe
         $payment->setStripePaymentIntentId($checkoutSession->payment_intent ?? $checkoutSession->id);
@@ -110,6 +128,42 @@ class InvoiceCheckoutController extends AbstractController
             'checkoutUrl' => $checkoutSession->url,
             'sessionId' => $checkoutSession->id,
         ], Response::HTTP_OK);
+    }
+
+    /**
+     * URL absolue http(s) dont l'origine est celle du front (FRONTEND_URL)
+     * ou une origine autorisée par CORS_ALLOW_ORIGIN.
+     */
+    private function isAllowedReturnUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        if (!$parts || !isset($parts['scheme'], $parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
+            return false;
+        }
+
+        $scheme = strtolower($parts['scheme']);
+        if (!\in_array($scheme, ['http', 'https'], true)) {
+            return false;
+        }
+
+        $origin = $scheme . '://' . strtolower($parts['host']) . (isset($parts['port']) ? ':' . $parts['port'] : '');
+
+        $front = parse_url($this->frontendUrl);
+        if ($front && isset($front['scheme'], $front['host'])) {
+            $frontOrigin = strtolower($front['scheme']) . '://' . strtolower($front['host']) . (isset($front['port']) ? ':' . $front['port'] : '');
+            if ($origin === $frontOrigin) {
+                return true;
+            }
+        }
+
+        if ($this->allowedOriginPattern !== '') {
+            // Même convention que NelmioCorsBundle (origin_regex)
+            $pattern = '{' . $this->allowedOriginPattern . '}i';
+
+            return @preg_match($pattern, $origin) === 1;
+        }
+
+        return false;
     }
 
     /**

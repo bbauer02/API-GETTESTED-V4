@@ -15,6 +15,10 @@ class InstituteVoter extends Voter
     public const INSTITUTE_EDIT = 'INSTITUTE_EDIT';
     public const INSTITUTE_DELETE = 'INSTITUTE_DELETE';
     public const INSTITUTE_MANAGE_MEMBERS = 'INSTITUTE_MANAGE_MEMBERS';
+    /** Gestion des documents (modèles) : ADMIN ou STAFF actif */
+    public const INSTITUTE_DOCUMENTS_MANAGE = 'INSTITUTE_DOCUMENTS_MANAGE';
+    /** Lecture des contenus internes : ADMIN, STAFF ou TEACHER actif */
+    public const INSTITUTE_STAFF_VIEW = 'INSTITUTE_STAFF_VIEW';
 
     protected function supports(string $attribute, mixed $subject): bool
     {
@@ -23,6 +27,8 @@ class InstituteVoter extends Voter
                 self::INSTITUTE_EDIT,
                 self::INSTITUTE_DELETE,
                 self::INSTITUTE_MANAGE_MEMBERS,
+                self::INSTITUTE_DOCUMENTS_MANAGE,
+                self::INSTITUTE_STAFF_VIEW,
             ])
             && $subject instanceof Institute;
     }
@@ -36,6 +42,8 @@ class InstituteVoter extends Voter
             self::INSTITUTE_VIEW => true,
             self::INSTITUTE_EDIT, self::INSTITUTE_MANAGE_MEMBERS => $this->canManage($token, $institute),
             self::INSTITUTE_DELETE => $this->isPlatformAdmin($token),
+            self::INSTITUTE_DOCUMENTS_MANAGE => $this->hasActiveRole($token, $institute, [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF]),
+            self::INSTITUTE_STAFF_VIEW => $this->hasActiveRole($token, $institute, [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF, InstituteRoleEnum::TEACHER]),
             default => false,
         };
     }
@@ -52,6 +60,32 @@ class InstituteVoter extends Voter
         }
 
         return $this->isInstituteAdmin($user, $institute);
+    }
+
+    /**
+     * @param InstituteRoleEnum[] $roles
+     */
+    private function hasActiveRole(TokenInterface $token, Institute $institute, array $roles): bool
+    {
+        if ($this->isPlatformAdmin($token)) {
+            return true;
+        }
+
+        $user = $token->getUser();
+        if (!$user instanceof User) {
+            return false;
+        }
+
+        foreach ($institute->getMemberships() as $membership) {
+            if ($membership->isActive()
+                && $membership->getUser()?->getId()?->equals($user->getId())
+                && in_array($membership->getRole(), $roles, true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isPlatformAdmin(TokenInterface $token): bool

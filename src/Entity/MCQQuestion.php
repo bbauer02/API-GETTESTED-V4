@@ -13,7 +13,8 @@ use Symfony\Component\Serializer\Annotation\Groups;
     shortName: 'mcq-questions',
     operations: [
         new Post(
-            security: "is_granted('QUESTION_CREATE')",
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            securityPostDenormalize: "is_granted('QUESTION_CREATE', object)",
             denormalizationContext: ['groups' => ['question:write']],
             normalizationContext: ['groups' => ['question:read']],
         ),
@@ -41,6 +42,12 @@ class MCQQuestion extends Question
     {
         parent::__construct();
         $this->choices = new ArrayCollection();
+    }
+
+    /** Accesseur pour la sérialisation (sinon le champ « isMultipleAnswer » n'est pas exposé en lecture). */
+    public function getIsMultipleAnswer(): bool
+    {
+        return $this->isMultipleAnswer;
     }
 
     public function isMultipleAnswer(): bool

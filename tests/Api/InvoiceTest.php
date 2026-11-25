@@ -196,6 +196,12 @@ class InvoiceTest extends WebTestCase
             'invoiceNumber' => 'INV-2026-00002',
         ]);
 
+        // La facture de fixture est déjà réglée : on retire son paiement pour avoir un reste à payer
+        // (requête directe : la collection en mémoire de la fixture ne contient pas ce paiement)
+        $em->createQuery('DELETE FROM App\Entity\Payment p WHERE p.invoice = :invoice')
+            ->setParameter('invoice', $invoice)
+            ->execute();
+
         $client->request('POST', '/api/invoices/' . $invoice->getId() . '/payments', [], [], [
             'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'CONTENT_TYPE' => 'application/json',
@@ -209,6 +215,32 @@ class InvoiceTest extends WebTestCase
         $data = json_decode($client->getResponse()->getContent(), true);
         $this->assertEquals('PENDING', $data['status']);
         $this->assertEquals(96.0, $data['amount']);
+    }
+
+    public function testCreatePaymentAboveRemainingIsRefused(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        // Facture déjà entièrement réglée (paiement COMPLETED de 96 €) : plus rien à payer
+        $invoice = $em->getRepository(Invoice::class)->findOneBy([
+            'status' => InvoiceStatusEnum::ISSUED,
+            'invoiceNumber' => 'INV-2026-00002',
+        ]);
+
+        $client->request('POST', '/api/invoices/' . $invoice->getId() . '/payments', [], [], [
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], json_encode([
+            'amount' => 10.0,
+            'paymentMethod' => 'STRIPE',
+        ]));
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     // ========================

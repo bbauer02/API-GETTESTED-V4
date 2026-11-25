@@ -31,7 +31,7 @@ class Choice
     private int $position = 0;
 
     #[ORM\Column(type: 'text', nullable: true)]
-    #[Groups(['question:read'])]
+    #[Groups(['question:read', 'question:write'])]
     private ?string $feedback = null;
 
     #[ORM\ManyToOne(targetEntity: MCQQuestion::class, inversedBy: 'choices')]

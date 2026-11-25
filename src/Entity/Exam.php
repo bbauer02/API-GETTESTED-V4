@@ -37,8 +37,10 @@ use Symfony\Component\Validator\Constraints as Assert;
             denormalizationContext: ['groups' => ['exam:write']],
             normalizationContext: ['groups' => ['exam:read']],
         ),
+        // securityPostDenormalize : interdit de déplacer l'épreuve vers un test d'un autre institut
         new Patch(
             security: "is_granted('ASSESSMENT_EDIT', object.getAssessment())",
+            securityPostDenormalize: "is_granted('ASSESSMENT_EDIT', object.getAssessment())",
             denormalizationContext: ['groups' => ['exam:write']],
             normalizationContext: ['groups' => ['exam:read']],
         ),

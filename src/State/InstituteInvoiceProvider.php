@@ -50,8 +50,10 @@ class InstituteInvoiceProvider implements ProviderInterface
         }
 
         foreach ($institute->getMemberships() as $membership) {
+            // Factures : administrateur actif de l'institut uniquement (ni personnel, ni membre archivé)
             if ($membership->getUser()?->getId()?->equals($user->getId())
-                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF])
+                && $membership->isActive()
+                && $membership->getRole() === InstituteRoleEnum::ADMIN
             ) {
                 return true;
             }

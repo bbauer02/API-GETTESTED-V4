@@ -55,7 +55,8 @@ class DocumentTemplateCreateProcessor implements ProcessorInterface
         }
 
         foreach ($institute->getMemberships() as $membership) {
-            if ($membership->getUser()?->getId()?->equals($user->getId())
+            if ($membership->isActive()
+                && $membership->getUser()?->getId()?->equals($user->getId())
                 && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF])
             ) {
                 return true;

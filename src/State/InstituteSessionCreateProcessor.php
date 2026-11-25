@@ -33,6 +33,10 @@ class InstituteSessionCreateProcessor implements ProcessorInterface
             throw new UnprocessableEntityHttpException('Les dates de début et fin sont requises.');
         }
 
+        if ($datesError = $session->getDatesValidationError()) {
+            throw new UnprocessableEntityHttpException($datesError);
+        }
+
         if (!$session->getAssessment()) {
             throw new UnprocessableEntityHttpException('L\'assessment est requis.');
         }
@@ -67,6 +71,7 @@ class InstituteSessionCreateProcessor implements ProcessorInterface
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
+                && $membership->isActive()
                 && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF], true)
             ) {
                 return true;

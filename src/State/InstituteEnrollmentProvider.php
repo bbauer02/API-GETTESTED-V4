@@ -67,6 +67,10 @@ class InstituteEnrollmentProvider implements ProviderInterface
         return $qb->getQuery()->getResult();
     }
 
+    /**
+     * Inscriptions de l'institut (coordonnées des candidats, factures) : administration et personnel
+     * actifs uniquement. Les enseignants passent par la session dont ils sont examinateurs.
+     */
     private function canView(User $user, Institute $institute): bool
     {
         if ($user->getPlatformRole() === PlatformRoleEnum::ADMIN) {
@@ -76,7 +80,7 @@ class InstituteEnrollmentProvider implements ProviderInterface
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
                 && $membership->isActive()
-                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF, InstituteRoleEnum::TEACHER], true)
+                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF], true)
             ) {
                 return true;
             }

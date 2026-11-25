@@ -52,7 +52,9 @@ class CandidateDocumentsController extends AbstractController
         foreach ($this->documentTypes() as $documentType) {
             $code = $documentType->getCode();
             $publication = $publications[$code] ?? null;
-            $template = $this->resolveTemplate($documentType, $session);
+            $availability = $this->documentAccessService->availability($documentType, $session, $enrollment);
+            // Le modèle (contenu du document) n'est renvoyé que si le document est disponible
+            $template = $availability['available'] ? $this->resolveTemplate($documentType, $session) : null;
 
             $items[] = [
                 'documentType' => $this->normalizeDocumentType($documentType),
@@ -61,7 +63,7 @@ class CandidateDocumentsController extends AbstractController
                     'publishedAt' => $publication->getPublishedAt()?->format(\DateTimeInterface::ATOM),
                     'isAutoPublished' => $publication->isAutoPublished(),
                 ] : null,
-                'availability' => $this->documentAccessService->availability($documentType, $session, $enrollment),
+                'availability' => $availability,
                 'template' => $template ? $this->normalizer->normalize($template, 'json', ['groups' => ['document_template:read']]) : null,
             ];
         }

@@ -10,6 +10,7 @@ use App\Entity\SubjectQuestion;
 use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\PlatformRoleEnum;
+use App\Enum\QuestionStatusEnum;
 use App\Enum\SubjectStatusEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -58,6 +59,10 @@ class SubjectQuestionCreateProcessor implements ProcessorInterface
             throw new NotFoundHttpException('Question introuvable.');
         }
 
+        if ($question->getStatus() === QuestionStatusEnum::RETIRED) {
+            throw new UnprocessableEntityHttpException('Une question retirée ne peut pas être ajoutée à un sujet.');
+        }
+
         // Validate same assessment: the question's assessment must match the session's assessment
         $scheduledExam = $subject->getScheduledExam();
         $session = $scheduledExam?->getSession();
@@ -67,7 +72,7 @@ class SubjectQuestionCreateProcessor implements ProcessorInterface
         if ($sessionAssessment && $questionAssessment
             && !$sessionAssessment->getId()->equals($questionAssessment->getId())) {
             throw new UnprocessableEntityHttpException(
-                'La question doit appartenir au même assessment que la session.'
+                'La question doit appartenir au même test que la session.'
             );
         }
 
@@ -115,7 +120,8 @@ class SubjectQuestionCreateProcessor implements ProcessorInterface
         }
 
         foreach ($institute->getMemberships() as $membership) {
-            if ($membership->getUser()?->getId()?->equals($user->getId())
+            if ($membership->isActive()
+                && $membership->getUser()?->getId()?->equals($user->getId())
                 && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::TEACHER])
             ) {
                 return true;

@@ -10,8 +10,11 @@ use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
+use ApiPlatform\Metadata\Post;
 use App\Enum\QuestionStatusEnum;
 use App\Repository\QuestionRepository;
+use App\State\QuestionPatchProcessor;
+use App\State\QuestionStatusProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -19,6 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: QuestionRepository::class)]
 #[ORM\Table(name: 'question')]
@@ -43,10 +47,35 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('QUESTION_VIEW', object)",
             normalizationContext: ['groups' => ['question:read']],
         ),
+        // securityPostDenormalize : le test cible (champ assessment) doit aussi appartenir à l'institut
         new Patch(
             security: "is_granted('QUESTION_EDIT', object)",
+            securityPostDenormalize: "is_granted('QUESTION_EDIT', object)",
             denormalizationContext: ['groups' => ['question:write']],
             normalizationContext: ['groups' => ['question:read']],
+            processor: QuestionPatchProcessor::class,
+        ),
+        // Workflow de statut : DRAFT -> PRETESTING (CALIBRATED est posé par la calibration)
+        new Post(
+            uriTemplate: '/questions/{id}/pretest',
+            security: "is_granted('QUESTION_EDIT', object)",
+            normalizationContext: ['groups' => ['question:read']],
+            processor: QuestionStatusProcessor::class,
+            read: true,
+            deserialize: false,
+            status: 200,
+            name: 'question_pretest',
+        ),
+        // Retrait (tout statut sauf RETIRED) : corps facultatif { "reason": "..." }
+        new Post(
+            uriTemplate: '/questions/{id}/retire',
+            security: "is_granted('QUESTION_EDIT', object)",
+            normalizationContext: ['groups' => ['question:read']],
+            processor: QuestionStatusProcessor::class,
+            read: true,
+            deserialize: false,
+            status: 200,
+            name: 'question_retire',
         ),
         new Delete(
             security: "is_granted('QUESTION_DELETE', object)",
@@ -87,7 +116,7 @@ abstract class Question
     private ?string $instruction = null;
 
     #[ORM\Column(nullable: true)]
-    #[Groups(['question:read', 'question:write'])]
+    #[Groups(['question:read', 'question:write', 'subject:read'])]
     #[Assert\Positive]
     private ?int $duration = null;
 
@@ -199,6 +228,35 @@ abstract class Question
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTime();
+    }
+
+    // --- Validation ---
+
+    /**
+     * Le niveau doit appartenir au test de la question (ou au test parent dont il hérite).
+     */
+    #[Assert\Callback]
+    public function validateLevelBelongsToAssessment(ExecutionContextInterface $context): void
+    {
+        if ($this->level === null || $this->assessment === null) {
+            return;
+        }
+
+        $validLevels = $this->assessment->getLevels()->toArray();
+        $parent = $this->assessment->getParent();
+        if ($parent !== null) {
+            $validLevels = array_merge($validLevels, $parent->getLevels()->toArray());
+        }
+
+        foreach ($validLevels as $validLevel) {
+            if ($validLevel->getId()?->equals($this->level->getId())) {
+                return;
+            }
+        }
+
+        $context->buildViolation("Le niveau choisi n'appartient pas au test de la question.")
+            ->atPath('level')
+            ->addViolation();
     }
 
     // --- Discriminator accessor ---
@@ -364,6 +422,12 @@ abstract class Question
     {
         $this->avgResponseTimeMs = $avgResponseTimeMs;
         return $this;
+    }
+
+    /** Accesseur pour la sérialisation (sinon le champ « isSeedItem » n'est pas exposé en lecture). */
+    public function getIsSeedItem(): bool
+    {
+        return $this->isSeedItem;
     }
 
     public function isSeedItem(): bool

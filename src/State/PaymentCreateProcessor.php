@@ -14,8 +14,10 @@ use App\Enum\PlatformRoleEnum;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use App\Exception\ConflictHttpException;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class PaymentCreateProcessor implements ProcessorInterface
 {
@@ -47,14 +49,56 @@ class PaymentCreateProcessor implements ProcessorInterface
 
         /** @var Payment $payment */
         $payment = $data;
+
+        // Le montant ne peut pas dépasser le reste à payer (paiements déjà encaissés déduits)
+        $amount = round((float) $payment->getAmount(), 2);
+        if ($amount <= 0) {
+            throw new UnprocessableEntityHttpException('Le montant du paiement doit être supérieur à zéro.');
+        }
+        $remaining = round($invoice->getTotalTTC() - $this->completedTotal($invoice), 2);
+        if ($amount > $remaining) {
+            throw new UnprocessableEntityHttpException(sprintf(
+                'Le montant dépasse le reste à payer (%s %s).',
+                number_format(max(0, $remaining), 2, ',', ' '),
+                $invoice->getCurrency(),
+            ));
+        }
+
         $payment->setInvoice($invoice);
         $payment->setStatus(PaymentStatusEnum::PENDING);
         $payment->setDate(new \DateTime());
 
+        // ?complete=1 : paiement reçu enregistré et encaissé en une seule opération (back-office),
+        // pour ne pas laisser de paiement « en attente » orphelin si une 2e requête échouait.
+        // Mêmes droits que PATCH /payments/{id}/complete (admin plateforme / admin de l'institut).
+        $request = $context['request'] ?? null;
+        $completeNow = $request instanceof Request && $request->query->getBoolean('complete');
+
         $this->entityManager->persist($payment);
+
+        if ($completeNow) {
+            $payment->setStatus(PaymentStatusEnum::COMPLETED);
+            $invoice->addPayment($payment);
+            if ($this->completedTotal($invoice) >= round($invoice->getTotalTTC(), 2)) {
+                $invoice->setStatus(InvoiceStatusEnum::PAID);
+            }
+        }
+
         $this->entityManager->flush();
 
         return $payment;
+    }
+
+    private function completedTotal(Invoice $invoice): float
+    {
+        $total = 0.0;
+        foreach ($invoice->getPayments() as $p) {
+            if ($p->getStatus() === PaymentStatusEnum::COMPLETED) {
+                $total += (float) $p->getAmount();
+            }
+        }
+
+        return round($total, 2);
     }
 
     private function canCreate(User $user, Invoice $invoice): bool
@@ -69,7 +113,8 @@ class PaymentCreateProcessor implements ProcessorInterface
         }
 
         foreach ($institute->getMemberships() as $membership) {
-            if ($membership->getUser()?->getId()?->equals($user->getId())
+            if ($membership->isActive()
+                && $membership->getUser()?->getId()?->equals($user->getId())
                 && $membership->getRole() === InstituteRoleEnum::ADMIN
             ) {
                 return true;

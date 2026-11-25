@@ -163,11 +163,13 @@ class ExamStartProvider implements ProviderInterface
 
     private function getFillBlankData(FillBlankQuestion $question): array
     {
+        // Trous dans l'ordre de l'énoncé ; « position » est la clé de réponse attendue par la correction
+        // (positions normalisées 0..n-1 quand celles enregistrées sont en double)
         $slots = [];
-        foreach ($question->getBlankSlots() as $slot) {
+        foreach ($this->graderService->blankSlotKeys($question) as ['slot' => $slot, 'key' => $key]) {
             $slots[] = [
                 'id' => $slot->getId()->toRfc4122(),
-                'position' => $slot->getPosition(),
+                'position' => (int) $key,
                 // NOTE: acceptedAnswers NOT included
             ];
         }

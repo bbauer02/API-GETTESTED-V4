@@ -64,6 +64,12 @@ class HighlightZone
         return $this;
     }
 
+    /** Accesseur pour la sérialisation (sinon le champ « isCorrect » n'est pas exposé en lecture). */
+    public function getIsCorrect(): bool
+    {
+        return $this->isCorrect;
+    }
+
     public function isCorrect(): bool
     {
         return $this->isCorrect;

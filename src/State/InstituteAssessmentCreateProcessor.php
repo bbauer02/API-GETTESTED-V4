@@ -11,6 +11,7 @@ use App\Entity\User;
 use App\Enum\InstituteRoleEnum;
 use App\Enum\OwnershipTypeEnum;
 use App\Enum\PlatformRoleEnum;
+use App\Service\AssessmentIntegrityChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -21,6 +22,7 @@ class InstituteAssessmentCreateProcessor implements ProcessorInterface
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly Security $security,
+        private readonly AssessmentIntegrityChecker $integrityChecker,
     ) {
     }
 
@@ -44,6 +46,9 @@ class InstituteAssessmentCreateProcessor implements ProcessorInterface
 
         $assessment->setIsInternal(false);
 
+        // Test parent : interne ou lié à cet institut (propriétaire ou acheteur)
+        $this->integrityChecker->assertParentAllowed($assessment, $currentUser, [$institute]);
+
         $this->entityManager->persist($assessment);
 
         $ownership = new AssessmentOwnership();
@@ -66,7 +71,8 @@ class InstituteAssessmentCreateProcessor implements ProcessorInterface
         }
 
         foreach ($institute->getMemberships() as $membership) {
-            if ($membership->getUser()?->getId()?->equals($user->getId())
+            if ($membership->isActive()
+                && $membership->getUser()?->getId()?->equals($user->getId())
                 && $membership->getRole() === InstituteRoleEnum::ADMIN
             ) {
                 return true;

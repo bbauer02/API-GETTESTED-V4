@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\LevelRepository;
 use App\State\AssessmentLevelCreateProcessor;
+use App\State\LevelDeleteProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
@@ -32,13 +33,16 @@ use Symfony\Component\Validator\Constraints as Assert;
             denormalizationContext: ['groups' => ['level:write']],
             normalizationContext: ['groups' => ['level:read']],
         ),
+        // Modification sur place par l'ADMIN de l'institut propriétaire du test (LevelVoter)
         new Patch(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('LEVEL_EDIT', object)",
             denormalizationContext: ['groups' => ['level:write']],
             normalizationContext: ['groups' => ['level:read']],
         ),
+        // Refusée (409) si le niveau est encore utilisé par une épreuve, une question ou une session
         new Delete(
-            security: "is_granted('ROLE_PLATFORM_ADMIN')",
+            security: "is_granted('LEVEL_DELETE', object)",
+            processor: LevelDeleteProcessor::class,
         ),
     ],
     paginationItemsPerPage: 30,
@@ -71,11 +75,11 @@ class Level
     #[ORM\Column(type: 'uuid', unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
-    #[Groups(['level:read', 'exam:read', 'assessment:read', 'session:read', 'enrollment:read'])]
+    #[Groups(['level:read', 'exam:read', 'assessment:read', 'session:read', 'enrollment:read', 'subject:read'])]
     private ?Uuid $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(['level:read', 'level:write', 'exam:read', 'assessment:read', 'session:read', 'enrollment:read'])]
+    #[Groups(['level:read', 'level:write', 'exam:read', 'assessment:read', 'session:read', 'enrollment:read', 'subject:read'])]
     #[Assert\NotBlank]
     #[Assert\Length(max: 255)]
     private ?string $label = null;

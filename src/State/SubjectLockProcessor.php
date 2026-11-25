@@ -25,7 +25,7 @@ class SubjectLockProcessor implements ProcessorInterface
         $subject = $data;
 
         if ($subject->getStatus() !== SubjectStatusEnum::DRAFT) {
-            throw new UnprocessableEntityHttpException('Seul un sujet en statut DRAFT peut être verrouillé.');
+            throw new UnprocessableEntityHttpException('Seul un sujet en brouillon peut être verrouillé.');
         }
 
         // Must have at least 1 non-seed question
@@ -34,7 +34,7 @@ class SubjectLockProcessor implements ProcessorInterface
         );
 
         if ($nonSeedQuestions->isEmpty()) {
-            throw new UnprocessableEntityHttpException('Le sujet doit contenir au moins une question non-seed.');
+            throw new UnprocessableEntityHttpException('Le sujet doit contenir au moins une question notée (hors questions test).');
         }
 
         // Calculate totalMaxPoints
@@ -50,12 +50,12 @@ class SubjectLockProcessor implements ProcessorInterface
 
         // Validate passingScore
         if ($subject->getPassingScore() === null) {
-            throw new UnprocessableEntityHttpException('Le score de passage (passingScore) doit être défini avant le verrouillage.');
+            throw new UnprocessableEntityHttpException('Le score de réussite doit être défini avant le verrouillage.');
         }
 
         if ($subject->getPassingScore() > $totalMaxPoints) {
             throw new UnprocessableEntityHttpException(
-                sprintf('Le score de passage (%.1f) ne peut pas dépasser le total des points (%.1f).', $subject->getPassingScore(), $totalMaxPoints)
+                sprintf('Le score de réussite (%.1f) ne peut pas dépasser le total des points (%.1f).', $subject->getPassingScore(), $totalMaxPoints)
             );
         }
 

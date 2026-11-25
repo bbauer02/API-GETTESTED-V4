@@ -239,6 +239,23 @@ class Session
         return $this;
     }
 
+    /**
+     * Cohérence des dates : la fin suit le début, la date limite d'inscription précède le début.
+     * Retourne le message d'erreur (en français) ou null si les dates sont cohérentes.
+     */
+    public function getDatesValidationError(): ?string
+    {
+        if ($this->start && $this->end && $this->end <= $this->start) {
+            return 'La date de fin doit être postérieure à la date de début.';
+        }
+
+        if ($this->start && $this->limitDateSubscribe && $this->limitDateSubscribe >= $this->start) {
+            return 'La date limite d\'inscription doit précéder le début de la session.';
+        }
+
+        return null;
+    }
+
     public function getLimitDateSubscribe(): ?\DateTimeInterface
     {
         return $this->limitDateSubscribe;

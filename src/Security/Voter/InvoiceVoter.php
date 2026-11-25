@@ -58,7 +58,7 @@ class InvoiceVoter extends Voter
             return true;
         }
 
-        if ($this->isInstituteAdminOrStaff($user, $invoice)) {
+        if ($this->isInstituteAdmin($user, $invoice)) {
             return true;
         }
 
@@ -77,7 +77,7 @@ class InvoiceVoter extends Voter
             return true;
         }
 
-        return $this->isInstituteAdminOrStaff($user, $invoice);
+        return $this->isInstituteAdmin($user, $invoice);
     }
 
     private function canEdit(User $user, Invoice $invoice): bool
@@ -121,24 +121,7 @@ class InvoiceVoter extends Voter
         return $user->getPlatformRole() === PlatformRoleEnum::ADMIN;
     }
 
-    private function isInstituteAdminOrStaff(User $user, Invoice $invoice): bool
-    {
-        $institute = $invoice->getInstitute();
-        if (!$institute) {
-            return false;
-        }
-
-        foreach ($institute->getMemberships() as $membership) {
-            if ($membership->getUser()?->getId()?->equals($user->getId())
-                && in_array($membership->getRole(), [InstituteRoleEnum::ADMIN, InstituteRoleEnum::STAFF])
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
+    /** Administrateur actif de l'institut émetteur (le personnel et les membres archivés n'ont pas accès aux factures). */
     private function isInstituteAdmin(User $user, Invoice $invoice): bool
     {
         $institute = $invoice->getInstitute();
@@ -148,6 +131,7 @@ class InvoiceVoter extends Voter
 
         foreach ($institute->getMemberships() as $membership) {
             if ($membership->getUser()?->getId()?->equals($user->getId())
+                && $membership->isActive()
                 && $membership->getRole() === InstituteRoleEnum::ADMIN
             ) {
                 return true;

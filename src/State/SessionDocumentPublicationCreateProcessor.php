@@ -30,8 +30,8 @@ class SessionDocumentPublicationCreateProcessor implements ProcessorInterface
             throw new NotFoundHttpException('Session introuvable.');
         }
 
-        $institute = $session->getInstitute();
-        if (!$this->security->isGranted('INSTITUTE_EDIT', $institute)) {
+        // Mêmes droits que le retrait d'une publication (SESSION_EDIT) : administration et personnel actifs
+        if (!$this->security->isGranted('SESSION_EDIT', $session)) {
             throw new AccessDeniedHttpException('Accès refusé.');
         }
 

@@ -28,7 +28,7 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             read: false,
             processor: SubjectQuestionCreateProcessor::class,
-            denormalizationContext: ['groups' => ['subject:write']],
+            denormalizationContext: ['groups' => ['subject:write', 'subject_question:create']],
             normalizationContext: ['groups' => ['subject:read']],
         ),
     ],
@@ -58,12 +58,14 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ApiResource(
     uriTemplate: '/subjects/{subjectId}/questions/reorder',
     operations: [
+        // Corps : { "order": ["<id SubjectQuestion>", ...] } — ordre complet des questions du sujet
         new Post(
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             read: false,
+            deserialize: false,
             processor: SubjectQuestionReorderProcessor::class,
-            denormalizationContext: ['groups' => ['subject:write']],
-            normalizationContext: ['groups' => ['subject:read']],
+            output: false,
+            status: 204,
         ),
     ],
     uriVariables: [
@@ -105,9 +107,10 @@ class SubjectQuestion
     #[Groups(['subject_question:read'])]
     private ?Subject $subject = null;
 
+    // Écrite uniquement à la création (contrôles de SubjectQuestionCreateProcessor), pas par PATCH
     #[ORM\ManyToOne(targetEntity: Question::class)]
     #[ORM\JoinColumn(nullable: false)]
-    #[Groups(['subject:read', 'subject:write'])]
+    #[Groups(['subject:read', 'subject_question:create'])]
     private ?Question $question = null;
 
     public function getId(): ?Uuid
@@ -124,6 +127,12 @@ class SubjectQuestion
     {
         $this->position = $position;
         return $this;
+    }
+
+    /** Accesseur pour la sérialisation (sinon le champ « isSeed » n'est pas exposé en lecture). */
+    public function getIsSeed(): bool
+    {
+        return $this->isSeed;
     }
 
     public function isSeed(): bool

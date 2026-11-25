@@ -68,7 +68,8 @@ class AssessmentSkillCreateProcessor implements ProcessorInterface
             }
 
             foreach ($institute->getMemberships() as $membership) {
-                if ($membership->getUser()?->getId()?->equals($user->getId())
+                if ($membership->isActive()
+                    && $membership->getUser()?->getId()?->equals($user->getId())
                     && $membership->getRole() === InstituteRoleEnum::ADMIN
                 ) {
                     return true;
