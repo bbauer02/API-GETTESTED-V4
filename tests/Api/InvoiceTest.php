@@ -243,6 +243,84 @@ class InvoiceTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
+    public function testCreatePaymentWithNonPositiveAmountIsRefused(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $invoice = $em->getRepository(Invoice::class)->findOneBy(['invoiceNumber' => 'INV-2026-00002']);
+        // Reste à payer non nul : seul le montant est en cause
+        $em->createQuery('DELETE FROM App\Entity\Payment p WHERE p.invoice = :invoice')
+            ->setParameter('invoice', $invoice)
+            ->execute();
+        $invoiceId = $invoice->getId();
+
+        foreach ([0, -5.0] as $amount) {
+            $client->request('POST', '/api/invoices/' . $invoiceId . '/payments', [], [], [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+            ], json_encode([
+                'amount' => $amount,
+                'paymentMethod' => 'BANK_TRANSFER',
+            ]));
+
+            $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY, 'Montant ' . $amount);
+        }
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->assertSame(0, $em->getRepository(Payment::class)->count(['invoice' => $invoiceId]));
+    }
+
+    public function testCreateCompletedPaymentMarksInvoicePaidWhenFullyPaid(): void
+    {
+        $client = static::createClient();
+        $this->loadFixtures();
+
+        $token = $this->getJwtToken(UserFixtures::USER1_EMAIL, UserFixtures::DEFAULT_PASSWORD);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        // Facture émise de 96 € TTC, paiement de la fixture retiré
+        $invoice = $em->getRepository(Invoice::class)->findOneBy(['invoiceNumber' => 'INV-2026-00002']);
+        $em->createQuery('DELETE FROM App\Entity\Payment p WHERE p.invoice = :invoice')
+            ->setParameter('invoice', $invoice)
+            ->execute();
+        $invoiceId = $invoice->getId();
+
+        $pay = function (float $amount) use ($client, $token, $invoiceId): array {
+            $client->request('POST', '/api/invoices/' . $invoiceId . '/payments?complete=1', [], [], [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+            ], json_encode([
+                'amount' => $amount,
+                'paymentMethod' => 'BANK_TRANSFER',
+            ]));
+            $this->assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+            return json_decode($client->getResponse()->getContent(), true);
+        };
+
+        // Acompte : paiement encaissé, facture toujours émise
+        $this->assertSame('COMPLETED', $pay(40.0)['status']);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $this->assertSame(InvoiceStatusEnum::ISSUED, $em->getRepository(Invoice::class)->find($invoiceId)->getStatus());
+
+        // Solde : total atteint, facture payée
+        $this->assertSame('COMPLETED', $pay(56.0)['status']);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $this->assertSame(InvoiceStatusEnum::PAID, $em->getRepository(Invoice::class)->find($invoiceId)->getStatus());
+        $this->assertSame(2, $em->getRepository(Payment::class)->count([
+            'invoice' => $invoiceId,
+            'status' => PaymentStatusEnum::COMPLETED,
+        ]));
+    }
+
     // ========================
     // PATCH /payments/{id}/complete — Complétion
     // ========================
