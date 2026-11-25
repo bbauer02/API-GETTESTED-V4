@@ -99,7 +99,9 @@ Les épreuves possèdent un prix.
 La somme des prix des exams permet de définir le tarif d'une session de test. L'utilisateur peut choisir des épreuves facultatives.
 Le créateur d'un test doit définir le tarif de chaque épreuves.
 
-Par contre un institut qui achete un test pourra définir un tarif different qui sera défini par l'objet : `InstituteExamPricing`.
+Par contre un institut qui exploite le test d'un autre institut sous contrat (voir `TestContract`) pourra définir son propre tarif de vente aux candidats, défini par l'objet : `InstituteExamPricing`.
+
+Chaque épreuve a un type (`examType`) : compréhension écrite, compréhension orale, expression écrite, expression orale ou autre. Les examinateurs du centre de passation ne notent que les épreuves d'**expression orale**.
 Le prix prioritaire sera : le prix définit par l'organisateur de la session. Si absent alors se sera le prix définit par le créateur de la plateforme.
 
 
@@ -118,8 +120,12 @@ Une date limite pour s'inscrire. Et un nombre de places limité.
 
 * DRAFT => Un brouillon, la session n'est pas publiée.
 * OPEN => Inscription OUVERTE.
-* CLOSE => Inscription FERMEE , on peut alors EDITER les convocations.
-* CANCELLED => Session Annulée, les inscris sont remboursées ou les demandes de paiement annulée.
+* LOCKED => Inscriptions VERROUILLÉES : verrouillage manuel, ou automatique à l'expiration de la date limite d'inscription.
+* VALIDATED => Validation définitive par l'organisateur, possible uniquement depuis LOCKED. Elle vaut **commande auprès du propriétaire du test** (écran de rappel du contrat et du total TTC ; date et identité de la personne qui valide). Plus aucune désinscription n'est possible.
+* CANCELLED => Session Annulée, les inscris sont remboursées ou les demandes de paiement annulée. Une session VALIDATED ne peut être annulée que pour **cas de force majeure**, par l'ADMIN de l'organisateur, avec un motif, tant que les copies n'ont pas été transmises au propriétaire : la commande est annulée sans facture et le propriétaire est notifié.
+
+Le propriétaire du test est notifié dès la création d'une session de son test, même non validée.
+La suite (copies, correction, résultats, attestations) est suivie par la commande (`SessionOrder`) : voir `SPEC/contrats-correction-attestations/design.md`.
 
 ## Objet `EnrollmentSession`
 
@@ -132,17 +138,18 @@ Il est associé à `User` et à `Session`.
 Lorsque l'on organise une session, le détail d'organisation des épreuves est défini par l'objet `ScheduledExam`.
 La date de départ, la localisation, la salle.
 Une épreuve est liée à 1 ou plusieurs examinateurs.
-Un Examinateur est le seul qui a la possibilité d'éditer les fiches de résultats ou modifier une note.
+Les examinateurs (membres du centre de passation) saisissent une note et valident des compétences **uniquement sur les épreuves d'expression orale**.
+**Seul le propriétaire du test** déclenche la correction des copies, contre-évalue les épreuves orales, valide les résultats et édite les attestations de résultat.
 
 ## Objet `AssessmentOwnership`
 
 Les instituts peuvent créer des tests complets. Ils deviennent alors le propriétaire du test qu'ils ont créé `OwnershipTypeEnum->OWNER`.
-Il est possible de vendre des tests à d'autres instituts pour qu'ils puissent exploiter dans des sessions.
-Les instituts qui achètent des tests ont la relation de type `OwnershipTypeEnum->BUYER`.
+Un test n'est **pas vendu** à d'autres instituts : il est exploité sous **contrat** (`TestContract`) entre le propriétaire et le centre de passation. Le contrat fixe un prix par épreuve, une durée, s'il est renouvelable, et ouvre le droit d'organiser des sessions du test.
+La relation `OwnershipTypeEnum->BUYER` est dépréciée et remplacée par le contrat. La plateforme est propriétaire des tests internes et suit le même principe.
 
 ## Objet `InstituteExamPricing`
 
-Lorsque les instituts exploitent un test dont ils ne sont pas le propriétaire, ils peuvent définir un prix personnalisé pour chaque épreuves du test.
+Lorsque les instituts exploitent un test dont ils ne sont pas le propriétaire, ils peuvent définir un prix de vente personnalisé pour chaque épreuve du test (prix facturé aux candidats). Ce prix est indépendant du prix du contrat, que le propriétaire facture à l'institut.
 Dans le cas où un prix personnalisé n'est pas défini dans `InstituteExamPricing`, le prix défini dans l'épreuve sera pris en compte.
 
 ---
@@ -291,29 +298,29 @@ Ce process décrit le parcours de facturation lorsqu'un candidat s'inscrit à un
    - La facture originale passe en `CANCELLED`
    - Un remboursement Stripe est initié → nouveau `Payment` en `REFUNDED` lié au paiement original via `refundedPayment`
 
-## Process 2 : Achat de licence de test (TEST_LICENSE — B2B)
+## Process 2 : Redevance d'exploitation de test (TEST_LICENSE — B2B)
 
-Ce process décrit la facturation lorsqu'un institut achète le droit d'exploiter un test créé par un autre institut ou par la plateforme.
+> Remplace l'ancien « achat de licence de test ». Détail complet : `SPEC/contrats-correction-attestations/design.md`.
 
-**Acteurs** : Institut acheteur, Institut vendeur (ou plateforme)
+Ce process décrit la facturation du propriétaire d'un test (institut ou plateforme) au centre de passation qui exploite ce test sous contrat.
+
+**Acteurs** : propriétaire du test (vendeur), institut organisateur (acheteur)
 
 ### Étapes
 
-1. **Demande d'achat** : l'institut acheteur demande à exploiter un test. Un `AssessmentOwnership` est créé avec `ownershipType` = `BUYER` et la `relationshipDate`.
-
-2. **Création de la facture** : une `Invoice` est créée en statut `DRAFT` avec :
+1. **Contrat** : le propriétaire propose un contrat (prix HT et TVA par épreuve, période, reconduction tacite aux mêmes prix si le contrat est renouvelable) ; l'organisateur l'accepte (date + identité). Le contrat en vigueur ouvre le droit d'organiser des sessions.
+2. **Commande** : à la validation définitive de la session (statut LOCKED → VALIDATED), une commande est créée : pour chaque épreuve, prix du contrat en vigueur × nombre d'inscrits actifs à l'épreuve. Les absents sont facturés ; les désinscrits n'apparaissent pas ; plus aucune désinscription n'est possible ensuite.
+3. **Facturation** : la facture est créée et émise **à l'édition des attestations de résultat par le propriétaire**, c'est-à-dire quand les résultats sont disponibles :
    - `businessType` = `TEST_LICENSE`
-   - `seller` = `Counterparty` de l'institut propriétaire (mentions B2B complètes : SIREN, TVA, forme juridique, capital, RCS)
-   - `buyer` = `Counterparty` de l'institut acheteur (mêmes mentions complètes)
+   - `seller` = `Counterparty` du propriétaire (ou de la plateforme), `buyer` = `Counterparty` de l'institut organisateur (mentions B2B complètes)
    - `operationCategory` = `SERVICE`
-   - `paymentTerms`, `latePaymentPenaltyRate`, `fixedRecoveryIndemnity` renseignés (obligatoire en B2B)
-   - Les `InvoiceLine` décrivent la licence d'exploitation du test
+   - `paymentTerms`, `latePaymentPenaltyRate`, `fixedRecoveryIndemnity` repris du contrat
+   - une `InvoiceLine` par épreuve de la commande
+4. **Unicité** : une seule facture par commande ; une réédition d'attestation ne refacture pas. Une session organisée par le propriétaire lui-même ne donne lieu à aucune facture.
+5. **Paiement** : par virement (V1), puis via Stripe Connect (V2).
+6. **Commission plateforme** : au paiement de la facture du propriétaire, la plateforme facture au propriétaire une commission (`PLATFORM_COMMISSION`) calculée sur le HT de cette facture. Aucune commission sur un test interne de la plateforme.
 
-3. **Émission** : validation par le vendeur. La facture passe en `ISSUED` (mêmes règles d'immutabilité).
-
-4. **Paiement** : via Stripe Connect (transfert entre comptes Stripe des deux instituts). Même cycle `Payment` que pour l'enrollment.
-
-5. **Annulation** : même mécanisme d'avoir que pour l'enrollment. L'`AssessmentOwnership` peut être désactivé si la licence est annulée.
+Deux factures distinctes coexistent donc pour une même session : organisateur → candidat (prix de vente de l'organisateur, process 1) et propriétaire → organisateur (prix du contrat, process 2).
 
 ## Obligations e-invoicing (Facture électronique)
 
